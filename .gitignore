@@ -1,0 +1,5 @@
+.env
+authelia/users.yml
+edge-ca-root.crt
+*.tar.gz
+notification.txt
