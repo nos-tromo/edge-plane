@@ -86,7 +86,9 @@ https://{$EDGE_HOST}:443 {
 	# under this path; redirect anyone who types /webui there.
 	@webui path /webui /webui/*
 	handle @webui {
-		import authed
+		# No forward_auth here — Caddy orders redir before forward_auth,
+		# so a check in this block can never run. Auth is enforced at the
+		# destination: the :8443 site gates every request.
 		redir https://{$EDGE_HOST}:8443
 	}
 	@grafana path /grafana /grafana/*
