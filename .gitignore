@@ -4,3 +4,5 @@ edge-ca-root.crt
 *.tar.gz
 notification.txt
 .edge-plane-version
+certs/*
+!certs/README.md

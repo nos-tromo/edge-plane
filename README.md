@@ -117,9 +117,14 @@ was chosen over pushing token validation into four apps, is in
 
 ## TLS / CA runbook
 
-Caddy terminates TLS using its own internal CA (`tls internal` in the
-Caddyfile) — there is no ACME, no external CA, and no egress, consistent
-with the airgap-first rule. To make LAN browsers trust it:
+Caddy terminates TLS using its own internal CA by default (`EDGE_TLS`
+unset → `tls internal` in the Caddyfile) — there is no ACME, no external
+CA, and no egress, consistent with the airgap-first rule. There are two
+supported cert sources:
+
+### Option A (default): internal CA
+
+To make LAN browsers trust it:
 
 ```bash
 make ca-export                # writes edge-ca-root.crt (Caddy's internal CA root)
@@ -134,6 +139,30 @@ certificate-warning interstitial — that is the accepted fallback for a
 LAN deployment with no public CA, not a bug; clicking through is safe
 because the certificate is generated locally on the gateway host, not
 downloaded from anywhere.
+
+### Option B: org-issued certificate
+
+If your organization runs an internal CA that managed clients already
+trust (the usual case when an org-provided domain points at the
+federation host), skip the root-distribution step entirely: have the org
+issue a certificate for the `EDGE_HOST` name, then
+
+1. place the PEM pair in `certs/` (gitignored; never commit certs or
+   keys):
+   `certs/cert.pem` (leaf, plus any intermediate chain) and
+   `certs/key.pem`
+2. set in `.env`:
+   `EDGE_TLS=/etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem`
+3. `make restart`
+
+The `certs/` directory is bind-mounted read-only into the container at
+`/etc/caddy/certs`. Certificate rotation is the same three steps with a
+new PEM pair. Reverting to the internal CA = unset `EDGE_TLS` and
+restart. The `edge-ca` volume and `make ca-export` remain functional
+either way (the internal CA is simply unused while `EDGE_TLS` points at
+org PEMs). Renewal is manual — the airgap rule means nothing renews
+itself, so track the org cert's expiry in whatever calendar the host's
+backups live in.
 
 **EDGE_HOST caveat**: `EDGE_HOST` must be a dotted hostname or an IP
 address — Authelia's cookie-domain validation (RFC 6265) rejects

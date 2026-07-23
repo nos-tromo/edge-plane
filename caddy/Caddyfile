@@ -42,7 +42,11 @@ http://{$EDGE_HOST}:80 {
 }
 
 https://{$EDGE_HOST}:443 {
-	tls internal
+	# EDGE_TLS selects the cert source (default: Caddy's internal CA).
+	# For an org-issued certificate, set in .env:
+	#   EDGE_TLS=/etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
+	# and place the PEM pair in ./certs/ (bind-mounted read-only).
+	tls {$EDGE_TLS:internal}
 	import strip_identity
 
 	# Authelia portal + its API, served under /auth (sub-path mode).
