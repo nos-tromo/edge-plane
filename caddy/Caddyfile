@@ -112,6 +112,13 @@ https://{$EDGE_HOST}:443 {
 https://{$EDGE_HOST}:8443 {
 	tls {$EDGE_TLS:internal}
 	import strip_identity
-	import authed
-	reverse_proxy open-webui:8080
+
+	# The proxy must live inside a handle block: at site level Caddy
+	# orders forward_auth BEFORE request_header, so strip_identity would
+	# delete the X-Auth-* headers copy_headers just injected. handle
+	# sorts after request_header, restoring strip -> auth -> inject.
+	handle {
+		import authed
+		reverse_proxy open-webui:8080
+	}
 }
