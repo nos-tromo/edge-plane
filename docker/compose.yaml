@@ -35,6 +35,9 @@ services:
     logging: *default-logging
     environment:
       EDGE_HOST: ${EDGE_HOST:?EDGE_HOST must be set in .env}
+      # Unset/empty -> internal CA. For an org-issued cert set EDGE_TLS in
+      # .env to the in-container PEM paths (see caddy/Caddyfile + README).
+      EDGE_TLS: ${EDGE_TLS:-internal}
     ports:
       - "443:443"
       - "80:80"
@@ -42,6 +45,7 @@ services:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
       - ../landing:/srv/landing:ro
+      - ../certs:/etc/caddy/certs:ro
       - edge-ca:/data
     networks:
       default:
