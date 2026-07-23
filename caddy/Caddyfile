@@ -1,0 +1,90 @@
+# edge-plane gateway. Airgap: internal CA only — no ACME, no OCSP, no egress.
+{
+	admin localhost:2019
+	# Container trust stores are irrelevant; operators export the root
+	# via `make ca-export` instead.
+	skip_install_trust
+	# RFC 6066 forbids the SNI extension for literal IP addresses, so no
+	# conformant client (curl, browsers, Go/OpenSSL/Python TLS stacks) ever
+	# sends SNI when EDGE_HOST is an IP — without a default, every such
+	# handshake fails with a TLS "internal_error" alert before HTTP is
+	# even reached. Pin the one site as the SNI-less fallback.
+	default_sni {$EDGE_HOST}
+}
+
+# The trusted-header model rests on this snippet: strip every identity
+# header a client could smuggle in, before any routing happens.
+(strip_identity) {
+	request_header -X-Auth-User
+	request_header -X-Auth-Email
+	request_header -Remote-User
+	request_header -Remote-Groups
+	request_header -Remote-Email
+	request_header -Remote-Name
+}
+
+# Per-route auth: delegate to Authelia; on success rename its
+# Remote-User assertion to the federation contract header X-Auth-User.
+# Authorization passes through untouched (not part of the contract;
+# upstreams use it internally).
+(authed) {
+	forward_auth authelia:9091 {
+		uri /api/authz/forward-auth
+		copy_headers {
+			Remote-User>X-Auth-User
+			Remote-Email>X-Auth-Email
+		}
+	}
+}
+
+http://{$EDGE_HOST}:80 {
+	redir https://{$EDGE_HOST}{uri} permanent
+}
+
+https://{$EDGE_HOST}:443 {
+	tls internal
+	import strip_identity
+
+	# Authelia portal + its API, served under /auth (sub-path mode).
+	handle /auth/* {
+		reverse_proxy authelia:9091
+	}
+
+	# App routes: prefix is NOT stripped — each upstream serves under
+	# its sub-path (SPA base / serve_from_sub_path; delivery steps ②–④).
+	handle /chorus/* {
+		import authed
+		reverse_proxy chorus-frontend:80
+	}
+	handle /docint/* {
+		import authed
+		reverse_proxy docint-frontend:80
+	}
+	handle /nextext/* {
+		import authed
+		reverse_proxy nextext-frontend:80
+	}
+	handle /translator/* {
+		import authed
+		reverse_proxy translator-frontend:80
+	}
+	handle /webui/* {
+		import authed
+		reverse_proxy open-webui:8080
+	}
+	handle /grafana/* {
+		import authed
+		reverse_proxy grafana:3000
+	}
+
+	# Dev-only extra routes land here via the compose override
+	# (production ships only empty.caddy in this directory).
+	import /etc/caddy/conf.d/*.caddy
+
+	# Landing page (authenticated) for everything else.
+	handle {
+		import authed
+		root * /srv/landing
+		file_server
+	}
+}

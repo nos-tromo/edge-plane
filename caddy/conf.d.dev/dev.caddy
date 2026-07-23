@@ -1,0 +1,4 @@
+handle /whoami/* {
+	import authed
+	reverse_proxy whoami:80
+}

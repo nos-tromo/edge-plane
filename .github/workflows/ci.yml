@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    # Shared infra checks (yamllint, shellcheck, bundle-lib drift-check).
+    # compose-files omitted for the same reason as obs-plane: the reusable
+    # workflow's env stubs don't cover this repo's required vars; compose
+    # validation happens in validate-configs below, seeded from .env.example.
+    uses: nos-tromo/.github/.github/workflows/infra-validation.yml@v3
+    with:
+      shell-scripts-glob: 'scripts/*.sh'
+
+  validate-configs:
+    # Validate every service config with the exact pinned images that will run it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: docker compose config
+        run: |
+          cp .env.example .env
+          cp authelia/users.template.yml authelia/users.yml
+          docker compose --env-file .env -f docker/compose.yaml config --quiet
+          docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml config --quiet
+      - name: caddy validate
+        run: |
+          docker run --rm -e EDGE_HOST=127.0.0.1 \
+            -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "$PWD/caddy/conf.d:/etc/caddy/conf.d:ro" \
+            docker.io/library/caddy:2.11.4@sha256:844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9 \
+            caddy validate --config /etc/caddy/Caddyfile
+      - name: authelia config validate
+        run: |
+          docker run --rm \
+            -e EDGE_HOST=127.0.0.1 -e X_AUTHELIA_CONFIG_FILTERS=template \
+            -e AUTHELIA_SESSION_SECRET=insecure-ci-session-secret-0123456789abcdef \
+            -e AUTHELIA_STORAGE_ENCRYPTION_KEY=insecure-ci-storage-key-0123456789abcdef \
+            -e AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=insecure-ci-jwt-secret-0123456789abcdef \
+            -v "$PWD/authelia/configuration.yml:/config/configuration.yml:ro" \
+            -v "$PWD/authelia/users.yml:/config/users.yml:ro" \
+            docker.io/authelia/authelia:4.39.20@sha256:1b363e9279e742397966333f364e0876ae02bf5c876de73e83af6d48c57ff51b \
+            authelia config validate --config /config/configuration.yml
+
+  smoke:
+    # The real contract test: full dev stack + scripts/smoke.sh.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: bring up dev stack
+        run: |
+          cp .env.example .env
+          cp authelia/users.template.yml authelia/users.yml
+          make up-dev
+      - name: wait for caddy + authelia healthy
+        run: |
+          ok=0
+          for i in $(seq 1 60); do
+            healthy=$(docker compose --env-file .env -f docker/compose.yaml ps --format '{{.Name}} {{.Health}}' \
+              | grep -c ' healthy$' || true)
+            if [ "$healthy" -ge 2 ]; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "stack did not become healthy within timeout"
+            docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml ps
+            docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml logs
+            exit 1
+          fi
+      - name: smoke
+        run: ./scripts/smoke.sh
+      - name: logs on failure
+        if: failure()
+        run: docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml logs

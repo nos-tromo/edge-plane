@@ -1,0 +1,24 @@
+# Dev overlay — adds a header-echo upstream (whoami) and its Caddy route so
+# the auth/header contract is testable without any real app attached.
+# Production shape (compose.yaml alone) contains neither.
+#
+# The conf.d mount below replaces (not layers on top of) the base compose's
+# read-only .../conf.d mount: Docker cannot create a nested mountpoint for a
+# single file inside an already bind-mounted, read-only parent directory
+# (confirmed to fail the same way on plain `docker run`, not just here) — so
+# the whole directory is swapped for a dev-only one containing dev.caddy
+# instead of bind-mounting the file into the production conf.d directory.
+services:
+  caddy:
+    volumes:
+      - ../caddy/conf.d.dev:/etc/caddy/conf.d:ro
+
+  whoami:
+    image: docker.io/traefik/whoami:v1.11.0@sha256:200689790a0a0ea48ca45992e0450bc26ccab5307375b41c84dfc4f2475937ab
+    networks:
+      default:
+        aliases:
+          - whoami
+    expose:
+      - "80"
+    restart: unless-stopped

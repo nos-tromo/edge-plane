@@ -1,0 +1,11 @@
+# Template — copy to authelia/users.yml on the deployment host and replace
+# with real users (`make user` hashes a password). NEVER commit users.yml.
+# The template user is synthetic; its password is 'insecure-dev-password'
+# (used by scripts/smoke.sh and CI only).
+---
+users:
+  jane.doe:
+    displayname: "Jane Doe"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$6bXVGzGU/7kmUP8b/6MS7w$jh5OoGXP07Kb8Tza4KZvBuCGO9vI2A4TqYC4HTbBxEA"
+    email: jane.doe@example.invalid
+    groups: []
