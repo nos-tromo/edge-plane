@@ -17,13 +17,13 @@ VOLUMES := edge-state edge-ca
 COMPOSE     := docker compose --env-file .env -f docker/compose.yaml
 COMPOSE_DEV := docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml
 
-.PHONY: help network volumes pull bundle up up-dev stop down restart ps logs health nuke user ca-export smoke
+.PHONY: help network volumes pull bundle up up-dev stop down restart ps logs health nuke user secret ca-export smoke
 
 help:
 	@echo "edge-plane — the federation's edge gateway (Caddy + Authelia)."
 	@echo
 	@echo "Lifecycle:"
-	@echo "  make network    create external edge-net if missing"
+	@echo "  make network    create external $(EDGE_NET) if missing"
 	@echo "  make volumes    create the external edge volumes if missing"
 	@echo "  make pull       pull all images from the registries"
 	@echo "  make bundle     save images as a versioned airgap tarball"
@@ -38,6 +38,7 @@ help:
 	@echo "  make health     caddy + authelia readiness"
 	@echo "  make logs S=caddy   tail logs for one service"
 	@echo "  make user       hash a password for authelia/users.yml"
+	@echo "  make secret     generate a random secret for .env"
 	@echo "  make ca-export  write the internal CA root to edge-ca-root.crt"
 	@echo "  make smoke      end-to-end auth/header checks (needs up-dev)"
 
@@ -58,9 +59,11 @@ bundle:
 	./scripts/bundle_images.sh
 
 up: network volumes
+	@test -f authelia/users.yml || { echo "authelia/users.yml missing — cp authelia/users.template.yml authelia/users.yml and edit"; exit 1; }
 	$(COMPOSE) up --no-build -d
 
 up-dev: network volumes
+	@test -f authelia/users.yml || { echo "authelia/users.yml missing — cp authelia/users.template.yml authelia/users.yml and edit"; exit 1; }
 	$(COMPOSE_DEV) up --no-build -d
 
 stop:
@@ -72,7 +75,7 @@ down:
 restart: down up
 
 nuke:
-	@echo "This will DESTROY all edge-plane volumes (auth DB, sessions/TOTP, internal CA):"
+	@echo "This will DESTROY all edge-plane volumes (auth DB — TOTP secrets, user preferences; internal CA):"
 	@for v in $(VOLUMES); do echo "  - $$v"; done
 	@read -p "Type 'nuke' to confirm: " confirm && [ "$$confirm" = "nuke" ] \
 	  || (echo "aborted"; exit 1)
@@ -98,7 +101,12 @@ else
 endif
 
 user:
+	@test -f authelia/users.yml || { echo "authelia/users.yml missing — cp authelia/users.template.yml authelia/users.yml and edit"; exit 1; }
 	$(COMPOSE) run --rm --no-deps authelia authelia crypto hash generate argon2
+
+secret:
+	@test -f authelia/users.yml || { echo "authelia/users.yml missing — cp authelia/users.template.yml authelia/users.yml and edit"; exit 1; }
+	$(COMPOSE) run --rm --no-deps authelia authelia crypto rand --length 64
 
 ca-export:
 	@$(COMPOSE) exec -T caddy cat /data/caddy/pki/authorities/local/root.crt > edge-ca-root.crt

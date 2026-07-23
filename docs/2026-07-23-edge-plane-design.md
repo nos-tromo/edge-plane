@@ -104,7 +104,9 @@ fetches — airgap-clean by configuration.
    request. This satisfies the seam implemented identically in
    `chorus/chorus/api/auth/principal.py`,
    `docint/docint/core/auth/principal.py`, and
-   `Nextext/nextext/api/identity.py`.
+   `Nextext/nextext/api/identity.py`. Caddy likewise copies
+   `Remote-Email` into `X-Auth-Email` for upstreams keyed on email
+   (e.g. Open WebUI's trusted-email-header SSO).
 4. Production `.env`s leave `CHORUS_DEFAULT_IDENTITY` /
    `DOCINT_DEFAULT_IDENTITY` / `NEXTEXT_DEFAULT_IDENTITY` unset, so a
    request that somehow bypasses the gateway fails closed with 401.
@@ -158,7 +160,7 @@ edge-plane/
   authelia/users.template.yml      # synthetic placeholders only
   landing/index.html
   docker/compose.yaml              # production shape: publishes :443 (+:80)
-  docker/compose.override.yaml    # dev overlay: publishes Authelia, HTTP variants
+  docker/compose.override.yaml    # dev overlay: adds whoami header-echo upstream + dev Caddy routes, publishes nothing extra
   scripts/                         # bundle, user-hash, CA-export helpers
   Makefile                         # bespoke (obs-plane mold)
   VERSION
@@ -182,8 +184,9 @@ Bring-up order becomes: inference → state → obs → apps → **edge**.
 deploy adds an edge tier, health-gated like the others. Ordering is a
 nicety, not a correctness requirement — Caddy answers 502 for a down
 upstream and recovers without restart. `make up-dev` federation-wide keeps
-its current meaning; edge-plane's own `up-dev` publishes extra ports for
-local iteration.
+its current meaning; edge-plane's own `up-dev` publishes nothing extra —
+it adds the whoami header-echo upstream and a dev Caddy route
+(`caddy/conf.d.dev/`) for local iteration.
 
 ## Risks and mitigations
 

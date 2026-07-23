@@ -16,6 +16,7 @@
 # header a client could smuggle in, before any routing happens.
 (strip_identity) {
 	request_header -X-Auth-User
+	request_header -X-Auth-Email
 	request_header -Remote-User
 	request_header -Remote-Groups
 	request_header -Remote-Email
@@ -31,6 +32,7 @@
 		uri /api/authz/forward-auth
 		copy_headers {
 			Remote-User>X-Auth-User
+			Remote-Email>X-Auth-Email
 		}
 	}
 }

@@ -58,7 +58,7 @@ useful for exercising the auth/header contract without any real app
 attached. Generate production secrets with:
 
 ```bash
-docker compose run --rm authelia authelia crypto rand --length 64
+make secret
 ```
 
 and set `AUTHELIA_SESSION_SECRET`, `AUTHELIA_STORAGE_ENCRYPTION_KEY`, and
@@ -79,7 +79,10 @@ issuer. Nothing issued it in production before edge-plane. The flow:
    redirect to `/auth/`. Authenticated → Authelia returns `Remote-User`
    (+ `Remote-Email`, `Remote-Groups`).
 3. Caddy copies `Remote-User` into **`X-Auth-User`** on the proxied
-   request — the `authed` snippet's `copy_headers`.
+   request — the `authed` snippet's `copy_headers`. The gateway also
+   forwards `X-Auth-Email` (from Authelia's `Remote-Email`) for
+   upstreams keyed on email, e.g. Open WebUI's
+   `WEBUI_AUTH_TRUSTED_EMAIL_HEADER=X-Auth-Email`.
 
 This is only sound because apps are unreachable except through the
 gateway (production publishes no host ports anywhere else in the
@@ -130,8 +133,8 @@ before Caddy ever routes the request.
 ## `make nuke` warning
 
 `make nuke` destroys both external volumes this project owns:
-`edge-state` (Authelia's SQLite DB — sessions, TOTP secrets,
-preferences) and `edge-ca` (Caddy's internal CA, including its private
+`edge-state` (Authelia's auth DB — TOTP secrets, user preferences)
+and `edge-ca` (Caddy's internal CA, including its private
 key). It is interactive (`Type 'nuke' to confirm`) precisely because
 recovery is not a restart: destroying `edge-ca` mints a **new** root CA
 on the next `make up`, so every browser that trusted the old root must
