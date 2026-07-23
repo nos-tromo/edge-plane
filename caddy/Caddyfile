@@ -79,10 +79,15 @@ https://{$EDGE_HOST}:443 {
 		import authed
 		reverse_proxy translator-frontend:80
 	}
+	# Open WebUI has no sub-path support (its SvelteKit frontend bakes
+	# root-absolute asset paths, e.g. /_app/..., at image build time —
+	# there is no runtime base-path env to rewrite them). It gets a
+	# dedicated port (see the :8443 site block below) instead of living
+	# under this path; redirect anyone who types /webui there.
 	@webui path /webui /webui/*
 	handle @webui {
 		import authed
-		reverse_proxy open-webui:8080
+		redir https://{$EDGE_HOST}:8443
 	}
 	@grafana path /grafana /grafana/*
 	handle @grafana {
@@ -100,4 +105,13 @@ https://{$EDGE_HOST}:443 {
 		root * /srv/landing
 		file_server
 	}
+}
+
+# Open WebUI has no sub-path support (root-absolute assets); it gets a
+# dedicated port instead of a /webui path, same auth + headers.
+https://{$EDGE_HOST}:8443 {
+	tls {$EDGE_TLS:internal}
+	import strip_identity
+	import authed
+	reverse_proxy open-webui:8080
 }

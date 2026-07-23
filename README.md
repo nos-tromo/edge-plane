@@ -32,15 +32,27 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 | `/docint/*` | `docint-frontend:80` | forward_auth | same |
 | `/nextext/*` | `nextext-frontend:80` | forward_auth | same |
 | `/translator/*` | `translator-frontend:80` | forward_auth | app ignores `X-Auth-User` (stateless) |
-| `/webui/*` | `open-webui:8080` | forward_auth | SSO via `WEBUI_AUTH_TRUSTED_EMAIL_HEADER`; Authelia login is the only login |
+| `/webui/*` | — | forward_auth | redirects to the dedicated `:8443` site (below) — Open WebUI has no sub-path support |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy` |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
 | everything else | static landing page (`landing/`) | forward_auth | links to the routed apps |
 
+**Open WebUI (`https://<EDGE_HOST>:8443/`, separate site block).** The
+upstream image has no base-path support: its SvelteKit frontend bakes
+root-absolute asset paths (`/_app/...`) at image build time, with no
+runtime env to rewrite them (confirmed against the pinned image's config
+and the `v0.9.6` source — no `WEBUI_BASE_URL`/`root_path` mechanism
+exists). So unlike the four SPAs above, it cannot share the `:443` site
+under `/webui` — it gets a dedicated port instead, same `strip_identity` +
+`authed` chain, published alongside `:443`/`:80` as the only other
+host-port exception. `/webui/*` on the main site just redirects there.
+
 See `docs/2026-07-23-edge-plane-design.md` for the full design rationale,
 including the risk analysis for SPA sub-path serving and the Grafana
-access-model change from obs-plane's tunnel-only v1 decision.
+access-model change from obs-plane's tunnel-only v1 decision (note: that
+doc's Open WebUI sub-path assumption did not hold — this README is
+authoritative).
 
 ## Quickstart
 
