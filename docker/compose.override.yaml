@@ -1,0 +1,17 @@
+# Dev overlay — adds a header-echo upstream (whoami) and its Caddy route so
+# the auth/header contract is testable without any real app attached.
+# Production shape (compose.yaml alone) contains neither.
+services:
+  caddy:
+    volumes:
+      - ../caddy/dev.caddy:/etc/caddy/conf.d/dev.caddy:ro
+
+  whoami:
+    image: docker.io/traefik/whoami:v1.11.0@sha256:200689790a0a0ea48ca45992e0450bc26ccab5307375b41c84dfc4f2475937ab
+    networks:
+      default:
+        aliases:
+          - whoami
+    expose:
+      - "80"
+    restart: unless-stopped
