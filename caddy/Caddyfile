@@ -56,27 +56,36 @@ https://{$EDGE_HOST}:443 {
 
 	# App routes: prefix is NOT stripped — each upstream serves under
 	# its sub-path (SPA base / serve_from_sub_path; delivery steps ②–④).
-	handle /chorus/* {
+	# Each matcher covers the bare prefix too (/chorus as well as
+	# /chorus/*): handle's path matcher alone misses the slash-less
+	# form, which would 404 at the gateway before reaching the app.
+	@chorus path /chorus /chorus/*
+	handle @chorus {
 		import authed
 		reverse_proxy chorus-frontend:80
 	}
-	handle /docint/* {
+	@docint path /docint /docint/*
+	handle @docint {
 		import authed
 		reverse_proxy docint-frontend:80
 	}
-	handle /nextext/* {
+	@nextext path /nextext /nextext/*
+	handle @nextext {
 		import authed
 		reverse_proxy nextext-frontend:80
 	}
-	handle /translator/* {
+	@translator path /translator /translator/*
+	handle @translator {
 		import authed
 		reverse_proxy translator-frontend:80
 	}
-	handle /webui/* {
+	@webui path /webui /webui/*
+	handle @webui {
 		import authed
 		reverse_proxy open-webui:8080
 	}
-	handle /grafana/* {
+	@grafana path /grafana /grafana/*
+	handle @grafana {
 		import authed
 		reverse_proxy grafana:3000
 	}
