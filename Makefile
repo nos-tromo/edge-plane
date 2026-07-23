@@ -67,7 +67,7 @@ stop:
 	$(COMPOSE) stop
 
 down:
-	$(COMPOSE) down
+	$(COMPOSE) down --remove-orphans
 
 restart: down up
 
@@ -76,7 +76,7 @@ nuke:
 	@for v in $(VOLUMES); do echo "  - $$v"; done
 	@read -p "Type 'nuke' to confirm: " confirm && [ "$$confirm" = "nuke" ] \
 	  || (echo "aborted"; exit 1)
-	$(COMPOSE) down
+	$(COMPOSE) down --remove-orphans
 	@for v in $(VOLUMES); do \
 	  docker volume rm $$v >/dev/null 2>&1 && echo "  removed $$v" || true; \
 	done
