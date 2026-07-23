@@ -87,7 +87,7 @@ ps:
 health:
 	@$(COMPOSE) ps --format '{{.Name}}\t{{.State}}\t{{.Status}}'
 	@echo
-	@$(COMPOSE) exec -T caddy wget -qO- http://localhost:2019/config/ >/dev/null && echo "caddy: ready"
+	@$(COMPOSE) exec -T caddy wget -qO- http://127.0.0.1:2019/config/ >/dev/null && echo "caddy: ready"
 	@$(COMPOSE) exec -T caddy wget -qO- http://authelia:9091/auth/api/health >/dev/null && echo "authelia: ready"
 
 logs:

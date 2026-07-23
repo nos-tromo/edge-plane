@@ -50,7 +50,11 @@ services:
       authelia:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:2019/config/"]
+      # Use 127.0.0.1, not localhost: the admin API binds IPv4-only and this
+      # image's busybox wget resolves "localhost" to ::1 first, so the
+      # check gets ECONNREFUSED every time despite Caddy being healthy
+      # (confirmed reproducible via `docker exec ... wget http://localhost:2019/...`).
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
       interval: 30s
       timeout: 5s
       retries: 5

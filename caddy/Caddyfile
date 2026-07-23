@@ -4,6 +4,12 @@
 	# Container trust stores are irrelevant; operators export the root
 	# via `make ca-export` instead.
 	skip_install_trust
+	# RFC 6066 forbids the SNI extension for literal IP addresses, so no
+	# conformant client (curl, browsers, Go/OpenSSL/Python TLS stacks) ever
+	# sends SNI when EDGE_HOST is an IP — without a default, every such
+	# handshake fails with a TLS "internal_error" alert before HTTP is
+	# even reached. Pin the one site as the SNI-less fallback.
+	default_sni {$EDGE_HOST}
 }
 
 # The trusted-header model rests on this snippet: strip every identity
