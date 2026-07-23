@@ -65,6 +65,24 @@ and set `AUTHELIA_SESSION_SECRET`, `AUTHELIA_STORAGE_ENCRYPTION_KEY`, and
 `AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET` in `.env` — the
 `.env.example` values are insecure dev/CI placeholders only.
 
+Set the real secrets **before the first `make up`**: Authelia encrypts its
+SQLite DB on the `edge-state` volume with `AUTHELIA_STORAGE_ENCRYPTION_KEY`
+at first startup, so rotating the key afterwards (e.g. after a dev/smoke
+run on the placeholder key) makes the next start fail its storage check
+("the configured encryption key does not appear to be valid for this
+database") and the container stays unhealthy. If the DB holds nothing
+real yet, clear it and let Authelia recreate it under the new key:
+
+```bash
+make down
+docker run --rm -v edge-state:/data --entrypoint sh \
+  docker.io/authelia/authelia:<pinned tag, see docs/images.md> -c 'rm -f /data/db.sqlite3'
+make up
+```
+
+With real data in the DB, use `authelia storage encryption change-key`
+(run with the old key still configured) instead of deleting.
+
 ## The trusted-header contract
 
 Three apps (chorus, docint, Nextext) already implement an identical
