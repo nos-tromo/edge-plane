@@ -50,7 +50,11 @@ https://{$EDGE_HOST}:443 {
 	import strip_identity
 
 	# Authelia portal + its API, served under /auth (sub-path mode).
-	handle /auth/* {
+	# Bare /auth included: Authelia's own login redirects target the
+	# slash-less portal URL, which must not fall into the authenticated
+	# catch-all (nested-redirect loop ending in a 404 after login).
+	@auth path /auth /auth/*
+	handle @auth {
 		reverse_proxy authelia:9091
 	}
 

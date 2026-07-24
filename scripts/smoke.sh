@@ -37,6 +37,13 @@ code_loc=$(run_curl "unauthenticated request" -o /dev/null -w '%{http_code} %{re
   || fail "expected 302 -> /auth for unauthenticated request, got: $code_loc"
 echo "ok: unauthenticated request redirects to portal"
 
+# 1b. The portal URL we were redirected to must itself load — bare /auth
+# included; a matcher gap here 404s the login flow after first factor.
+portal_url=${code_loc#* }
+portal=$(run_curl "portal page" -o /dev/null -w '%{http_code} %{content_type}' -H 'Accept: text/html' "$portal_url")
+[[ "$portal" == 200\ text/html* ]] || fail "portal page did not load: $portal"
+echo "ok: portal page loads ($portal_url)"
+
 # 2. First-factor login (session cookie into the jar).
 login=$(run_curl "first-factor login" -c "$JAR" -o /dev/null -w '%{http_code}' \
   -H 'Content-Type: application/json' \
