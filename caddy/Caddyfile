@@ -105,10 +105,13 @@ https://{$EDGE_HOST}:443 {
 	# (production ships only empty.caddy in this directory).
 	import /etc/caddy/conf.d/*.caddy
 
-	# Landing page (authenticated) for everything else.
+	# Landing page (authenticated) for everything else. `templates`
+	# renders the signed-in identity (X-Auth-User, injected by authed)
+	# into the static HTML server-side.
 	handle {
 		import authed
 		root * /srv/landing
+		templates
 		file_server
 	}
 }

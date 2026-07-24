@@ -27,7 +27,7 @@
     <li><a href="/webui/">Open WebUI</a></li>
     <li><a href="/grafana/">Grafana</a></li>
   </ul>
-  <p class="session"><a href="/auth/logout">Sign out</a></p>
+  <p class="session">Signed in as <strong>{{.Req.Header.Get "X-Auth-User"}}</strong> &middot; <a href="/auth/logout">Sign out</a></p>
 </main>
 </body>
 </html>

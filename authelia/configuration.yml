@@ -16,13 +16,19 @@ authentication_backend:
 access_control:
   default_policy: deny
   rules:
-    # Grafana is operator tooling: admins group only. First match wins,
-    # so this must precede the catch-all.
+    # Grafana is operator tooling: admins group only. Subject is part of
+    # a rule's MATCH criteria — a non-admin simply skips the first rule —
+    # so the explicit deny below is what actually blocks everyone else.
+    # Order matters: first match wins.
     - domain: '{{ env "EDGE_HOST" }}'
       resources:
         - '^/grafana(/|$)'
       subject: 'group:admins'
       policy: one_factor
+    - domain: '{{ env "EDGE_HOST" }}'
+      resources:
+        - '^/grafana(/|$)'
+      policy: deny
     - domain: '{{ env "EDGE_HOST" }}'
       policy: one_factor
 
