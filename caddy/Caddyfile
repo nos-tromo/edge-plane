@@ -50,7 +50,11 @@ https://{$EDGE_HOST}:443 {
 	import strip_identity
 
 	# Authelia portal + its API, served under /auth (sub-path mode).
-	handle /auth/* {
+	# Bare /auth included: Authelia's own login redirects target the
+	# slash-less portal URL, which must not fall into the authenticated
+	# catch-all (nested-redirect loop ending in a 404 after login).
+	@auth path /auth /auth/*
+	handle @auth {
 		reverse_proxy authelia:9091
 	}
 
@@ -79,10 +83,17 @@ https://{$EDGE_HOST}:443 {
 		import authed
 		reverse_proxy translator-frontend:80
 	}
+	# Open WebUI has no sub-path support (its SvelteKit frontend bakes
+	# root-absolute asset paths, e.g. /_app/..., at image build time —
+	# there is no runtime base-path env to rewrite them). It gets a
+	# dedicated port (see the :8443 site block below) instead of living
+	# under this path; redirect anyone who types /webui there.
 	@webui path /webui /webui/*
 	handle @webui {
-		import authed
-		reverse_proxy open-webui:8080
+		# No forward_auth here — Caddy orders redir before forward_auth,
+		# so a check in this block can never run. Auth is enforced at the
+		# destination: the :8443 site gates every request.
+		redir https://{$EDGE_HOST}:8443
 	}
 	@grafana path /grafana /grafana/*
 	handle @grafana {
@@ -94,10 +105,29 @@ https://{$EDGE_HOST}:443 {
 	# (production ships only empty.caddy in this directory).
 	import /etc/caddy/conf.d/*.caddy
 
-	# Landing page (authenticated) for everything else.
+	# Landing page (authenticated) for everything else. `templates`
+	# renders the signed-in identity (X-Auth-User, injected by authed)
+	# into the static HTML server-side.
 	handle {
 		import authed
 		root * /srv/landing
+		templates
 		file_server
+	}
+}
+
+# Open WebUI has no sub-path support (root-absolute assets); it gets a
+# dedicated port instead of a /webui path, same auth + headers.
+https://{$EDGE_HOST}:8443 {
+	tls {$EDGE_TLS:internal}
+	import strip_identity
+
+	# The proxy must live inside a handle block: at site level Caddy
+	# orders forward_auth BEFORE request_header, so strip_identity would
+	# delete the X-Auth-* headers copy_headers just injected. handle
+	# sorts after request_header, restoring strip -> auth -> inject.
+	handle {
+		import authed
+		reverse_proxy open-webui:8080
 	}
 }

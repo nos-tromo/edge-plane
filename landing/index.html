@@ -12,6 +12,8 @@
   li { margin: .5rem 0; }
   a { color: #8ab4f8; text-decoration: none; font-size: 1.2rem; }
   a:hover { text-decoration: underline; }
+  .session { margin-top: 2.5rem; }
+  .session a { font-size: .85rem; color: #888; }
 </style>
 </head>
 <body>
@@ -25,6 +27,7 @@
     <li><a href="/webui/">Open WebUI</a></li>
     <li><a href="/grafana/">Grafana</a></li>
   </ul>
+  <p class="session">Signed in as <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong> &middot; <a href="/auth/logout">Sign out</a></p>
 </main>
 </body>
 </html>

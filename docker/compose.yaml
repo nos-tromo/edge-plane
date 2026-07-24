@@ -10,7 +10,8 @@
 ###   - Any membership on inference-net / data-net — the gateway can never
 ###     reach backends or databases directly.
 ###
-### Ports: :443 (+ :80 redirect) are the ONLY published ports in the
+### Ports: :443 (+ :80 redirect) and :8443 (Open WebUI's dedicated site —
+### it has no sub-path support) are the ONLY published ports in the
 ### production federation — this is the entry point, the exception that
 ### proves the no-host-ports rule.
 
@@ -41,6 +42,10 @@ services:
     ports:
       - "443:443"
       - "80:80"
+      # Dedicated site for Open WebUI (no sub-path support — see
+      # caddy/Caddyfile's :8443 block). The one other exception to the
+      # no-host-ports rule beyond the main entry point above.
+      - "8443:8443"
     volumes:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
