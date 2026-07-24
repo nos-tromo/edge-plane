@@ -16,6 +16,13 @@ authentication_backend:
 access_control:
   default_policy: deny
   rules:
+    # Grafana is operator tooling: admins group only. First match wins,
+    # so this must precede the catch-all.
+    - domain: '{{ env "EDGE_HOST" }}'
+      resources:
+        - '^/grafana(/|$)'
+      subject: 'group:admins'
+      policy: one_factor
     - domain: '{{ env "EDGE_HOST" }}'
       policy: one_factor
 
