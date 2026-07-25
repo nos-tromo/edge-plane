@@ -3,8 +3,8 @@
 # Verifies, via the whoami header-echo upstream:
 #   1. unauthenticated browser request -> redirect to the /auth portal
 #   2. first-factor login succeeds
-#   3. authenticated request carries X-Auth-User=<user> upstream
-#   4. a client-forged X-Auth-User NEVER reaches the upstream
+#   3. authenticated request carries X-Auth-User and X-Auth-Groups upstream
+#   4. client-forged X-Auth-User and X-Auth-Groups headers NEVER reach the upstream
 set -euo pipefail
 
 BASE="${EDGE_SMOKE_BASE:-https://127.0.0.1}"
