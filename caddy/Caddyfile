@@ -128,6 +128,12 @@ https://{$EDGE_HOST}:8443 {
 	# sorts after request_header, restoring strip -> auth -> inject.
 	handle {
 		import authed
-		reverse_proxy open-webui:8080
+		reverse_proxy open-webui:8080 {
+			# Cap long-lived streams (socket.io): forward_auth only
+			# gates the HTTP upgrade, so an open WebSocket would
+			# otherwise outlive the Authelia session indefinitely.
+			# Re-upgrades pass back through forward_auth.
+			stream_timeout 30m
+		}
 	}
 }
