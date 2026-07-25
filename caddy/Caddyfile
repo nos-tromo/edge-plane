@@ -17,6 +17,7 @@
 (strip_identity) {
 	request_header -X-Auth-User
 	request_header -X-Auth-Email
+	request_header -X-Auth-Groups
 	request_header -Remote-User
 	request_header -Remote-Groups
 	request_header -Remote-Email
@@ -33,6 +34,7 @@
 		copy_headers {
 			Remote-User>X-Auth-User
 			Remote-Email>X-Auth-Email
+			Remote-Groups>X-Auth-Groups
 		}
 	}
 }

@@ -52,15 +52,22 @@ login=$(run_curl "first-factor login" -c "$JAR" -o /dev/null -w '%{http_code}' \
 [[ "$login" == "200" ]] || fail "login returned HTTP $login"
 echo "ok: first-factor login"
 
-# 3+4. Authenticated request WITH a forged identity header: the upstream
-# must see X-Auth-User=$USER_NAME and must NOT see the forged value.
-body=$(run_curl "authenticated whoami request" -b "$JAR" -H 'X-Auth-User: mallory' "$BASE/whoami/")
+# 3+4. Authenticated request WITH forged identity headers: the upstream
+# must see the gateway-injected X-Auth-User/X-Auth-Groups values and
+# must NOT see the forged ones.
+body=$(run_curl "authenticated whoami request" -b "$JAR" \
+  -H 'X-Auth-User: mallory' -H 'X-Auth-Groups: admins' "$BASE/whoami/")
 grep -qi "^X-Auth-User: $USER_NAME" <<<"$body" \
   || fail "upstream did not receive X-Auth-User=$USER_NAME:
 $body"
+grep -qi "^X-Auth-Groups: users" <<<"$body" \
+  || fail "upstream did not receive X-Auth-Groups=users:
+$body"
 grep -qi "mallory" <<<"$body" && fail "forged X-Auth-User reached the upstream:
 $body"
-echo "ok: X-Auth-User injected; forged header stripped"
+grep -qi "^X-Auth-Groups:.*admins" <<<"$body" && fail "forged X-Auth-Groups reached the upstream:
+$body"
+echo "ok: X-Auth-User + X-Auth-Groups injected; forged headers stripped"
 
 # Landing page reachable with the session.
 landing=$(run_curl "landing page request" -b "$JAR" -o /dev/null -w '%{http_code}' "$BASE/")
