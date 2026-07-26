@@ -1,5 +1,5 @@
-<!doctype html>
-<html lang="en">
+{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}<!doctype html>
+<html lang="{{if $de}}de{{else}}en{{end}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,7 +27,7 @@
     <li><a href="/webui/">Open WebUI</a></li>
     <li><a href="/grafana/">Grafana</a></li>
   </ul>
-  <p class="session">Signed in as <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong> &middot; <a href="/auth/logout">Sign out</a></p>
+  <p class="session">{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong> &middot; <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a></p>
 </main>
 </body>
 </html>
