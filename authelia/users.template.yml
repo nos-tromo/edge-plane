@@ -8,4 +8,5 @@ users:
     displayname: "Jane Doe"
     password: "$argon2id$v=19$m=65536,t=3,p=4$6bXVGzGU/7kmUP8b/6MS7w$jh5OoGXP07Kb8Tza4KZvBuCGO9vI2A4TqYC4HTbBxEA"
     email: jane.doe@example.invalid
-    groups: []
+    groups:
+      - users

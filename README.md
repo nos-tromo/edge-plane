@@ -102,9 +102,9 @@ seam: a configurable header (default `X-Auth-User`) resolved fail-closed
 to a principal, with the upstream reverse proxy named as the intended
 issuer. Nothing issued it in production before edge-plane. The flow:
 
-1. Caddy **unconditionally strips** client-supplied `X-Auth-User` and
-   `Remote-*` headers on every request, before anything else — the
-   `strip_identity` snippet in `caddy/Caddyfile`.
+1. Caddy **unconditionally strips** client-supplied `X-Auth-User`,
+   `X-Auth-Groups`, and `Remote-*` headers on every request, before
+   anything else — the `strip_identity` snippet in `caddy/Caddyfile`.
 2. `forward_auth` sends the request to Authelia. Unauthenticated →
    redirect to `/auth/`. Authenticated → Authelia returns `Remote-User`
    (+ `Remote-Email`, `Remote-Groups`).
@@ -113,6 +113,12 @@ issuer. Nothing issued it in production before edge-plane. The flow:
    forwards `X-Auth-Email` (from Authelia's `Remote-Email`) for
    upstreams keyed on email, e.g. Open WebUI's
    `WEBUI_AUTH_TRUSTED_EMAIL_HEADER=X-Auth-Email`.
+
+   The gateway likewise forwards **`X-Auth-Groups`** (from Authelia's
+   `Remote-Groups`, comma-separated) so upstreams can make group-based
+   authorization decisions — e.g. docint grants members of the `admins`
+   group visibility into all users' collections. Groups are defined per
+   user in `authelia/users.yml`.
 
 This is only sound because apps are unreachable except through the
 gateway (production publishes no host ports anywhere else in the
