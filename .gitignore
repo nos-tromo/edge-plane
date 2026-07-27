@@ -6,3 +6,5 @@ notification.txt
 .edge-plane-version
 certs/*
 !certs/README.md
+.DS_Store
+*.code-workspace

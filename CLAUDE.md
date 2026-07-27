@@ -1,0 +1,148 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Confidentiality — hard rule
+
+Never commit real production/testing data or metadata referencing it
+(usernames, handles, log excerpts, screenshots) — use synthetic
+placeholders (`authelia/users.template.yml` is the model). Never commit
+local development filepaths (`/Users/<name>/...` etc.); only relative
+project paths. Never commit `.env`, `authelia/users.yml`, or anything in
+`certs/` (all gitignored).
+
+## What this repo is
+
+The federation's edge gateway — pure infra, no application source. Two
+pulled, digest-pinned images: **Caddy** (TLS on `:443` + `:80` redirect,
+path routing, `forward_auth`, identity-header injection; dedicated
+`:8443` site for Open WebUI) and **Authelia** (file-backed users, SQLite
+state, filesystem notifier — airgap-clean, no SMTP/egress). These are the
+only published host ports in the whole production federation.
+
+`README.md` is the authoritative operator runbook (routing table, TLS/CA
+runbook, secrets provisioning, `EDGE_HOST` rules). Design rationale:
+`docs/2026-07-23-edge-plane-design.md` (note: its Open WebUI sub-path
+assumption did not hold — the README wins). Pinned image references:
+`docs/images.md` — the source of truth CI and compose must match.
+
+## Commands
+
+There is no build and no test suite in the usual sense — the "tests" are
+config validation and an end-to-end smoke script. Bespoke Makefile
+(data-plane/obs-plane pattern), not `common.mk`; no `make verify`, no
+`bundle-dev`.
+
+```bash
+make up             # production shape (:443/:80/:8443 only); requires .env + authelia/users.yml
+make up-dev         # + whoami header-echo upstream and its /whoami route
+make smoke          # end-to-end auth/header contract test — needs a running `make up-dev`
+make health         # caddy + authelia readiness
+make logs S=caddy   # tail one service (omit S= for all)
+make down           # stop, volumes preserved
+make user           # hash a password for authelia/users.yml (argon2)
+make secret         # generate a random secret for .env
+make ca-export      # write internal CA root to edge-ca-root.crt
+make bundle         # airgap tarball of the latest annotated tag
+EDGE_PLANE_VERSION_OVERRIDE=<v> make bundle   # bundle the working tree instead
+make nuke           # DESTROYS edge-state + edge-ca volumes — interactive; new CA root on next up
+```
+
+First-time setup: `cp .env.example .env` (set `EDGE_HOST`, real secrets —
+storage encryption key must be right **before first up**, see README),
+`cp authelia/users.template.yml authelia/users.yml`, `make user`.
+
+Local CI equivalents (what `.github/workflows/ci.yml` runs):
+
+```bash
+docker compose --env-file .env -f docker/compose.yaml config --quiet            # compose validation
+docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+  -v "$PWD/caddy/conf.d:/etc/caddy/conf.d:ro" <pinned caddy image> \
+  caddy validate --config /etc/caddy/Caddyfile                                  # Caddyfile validation
+./scripts/smoke.sh                                                              # after make up-dev
+```
+
+CI also runs shared infra checks (yamllint, shellcheck, and a drift-check
+of `scripts/bundle-lib.sh` against its canonical copy in
+`nos-tromo/.github` — never hand-edit that file; re-vendor it).
+
+Releases: bump the one-line `VERSION` file in the PR; the `release-tag`
+workflow mints the annotated `vX.Y.Z` tag on merge to `main`.
+
+## Architecture
+
+### The trusted-header contract (the load-bearing thing)
+
+Every request through the gateway follows strip → auth → inject:
+
+1. `strip_identity` snippet (`caddy/Caddyfile`) unconditionally deletes
+   client-supplied `X-Auth-User`, `X-Auth-Email`, and all `Remote-*`
+   headers before any routing.
+2. `authed` snippet runs `forward_auth` against `authelia:9091`;
+   unauthenticated requests redirect to the `/auth` portal.
+3. On success, `copy_headers` renames Authelia's `Remote-User` →
+   `X-Auth-User` and `Remote-Email` → `X-Auth-Email` for the upstream.
+
+`Authorization` passes through untouched — it is not part of the contract
+(upstreams like Open WebUI use it internally). Downstream apps (chorus,
+docint, Nextext) consume `X-Auth-User` fail-closed; the whole model is
+sound only because production publishes no other host ports and the
+gateway strips before injecting — which is exactly what
+`scripts/smoke.sh`'s spoof test proves (forged `X-Auth-User: mallory`
+must never reach the upstream). Any Caddyfile change should keep that
+test passing.
+
+### Caddyfile ordering traps (why the file is shaped the way it is)
+
+These were all hit in anger; don't "simplify" them away:
+
+- Proxies needing auth must live inside `handle` blocks: at site level
+  Caddy orders `forward_auth` **before** `request_header`, so
+  `strip_identity` would delete the headers `copy_headers` just injected.
+- Every app matcher covers the bare prefix too (`/chorus` and
+  `/chorus/*`) — the path matcher alone misses the slash-less form
+  (gateway 404).
+- Bare `/auth` must be matched: Authelia's login redirects target the
+  slash-less portal URL, which must not fall into the authenticated
+  catch-all (redirect loop → 404 after login).
+- The `/webui` block cannot carry `forward_auth` (Caddy orders `redir`
+  first, so it would never run) — auth is enforced at the `:8443`
+  destination instead.
+- `:8443` caps streams at `stream_timeout 30m`: `forward_auth` gates only
+  the WebSocket upgrade, so an open socket would otherwise outlive the
+  Authelia session.
+- `default_sni {$EDGE_HOST}` is required because RFC 6066 forbids SNI for
+  literal IPs — without it every handshake to an IP `EDGE_HOST` fails.
+- App route prefixes are NOT stripped — each SPA serves under its
+  sub-path; Open WebUI can't (root-absolute baked asset paths), hence the
+  dedicated `:8443` site.
+
+### Other structural facts
+
+- Caddy joins **only** `edge-net` (external network; `make network`
+  creates it) plus the project-internal default network where Authelia
+  lives — never `inference-net`/`data-net`. Authelia is on the internal
+  network only, reachable solely via Caddy. Upstreams are reached by
+  `edge-net` alias (`chorus-frontend`, `docint-frontend`,
+  `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`);
+  this repo does not own those services. Do not route Neo4j/Qdrant/
+  `vllm-router` — that is the seam violation the network design prevents.
+- Two external volumes: `edge-state` (Authelia's encrypted SQLite —
+  TOTP secrets, sessions) and `edge-ca` (Caddy's internal CA + private
+  key). `docker compose down -v` can't destroy them; only `make nuke`.
+- Access control lives in `authelia/configuration.yml`: default policy
+  one_factor for all users, but `/grafana` is admins-group only via a
+  match-then-explicit-deny rule pair (order matters, first match wins).
+  It's rendered with `X_AUTHELIA_CONFIG_FILTERS=template` (reads
+  `EDGE_HOST` from env).
+- Dev vs prod divergence is a whole-directory swap:
+  `compose.override.yaml` replaces the `caddy/conf.d` mount with
+  `caddy/conf.d.dev` (containing the `/whoami` route) because Docker
+  can't nest a file mount inside a read-only bind-mounted directory.
+  Production ships only `conf.d/empty.caddy`; the whoami image is never
+  bundled.
+- Airgap-first: internal CA by default (no ACME/OCSP/egress), or
+  org-issued PEMs via `EDGE_TLS` + `certs/` (see README's TLS runbook).
+  Never add anything that fetches at runtime. When bumping an image,
+  update the digest pin in `docker/compose.yaml`, `docs/images.md`, and
+  `ci.yml` together.
