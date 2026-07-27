@@ -54,6 +54,18 @@ access-model change from obs-plane's tunnel-only v1 decision (note: that
 doc's Open WebUI sub-path assumption did not hold — this README is
 authoritative).
 
+## UI language
+
+`RESPONSE_LANGUAGE` (`en` | `de`, default `en`) localizes the static
+landing page (`landing/`) via Caddy's `templates` directive — the same
+uniform env var used across the federation's other frontends. Set it in
+`.env` and re-run `make up` (the container must be recreated, not just
+restarted — `docker compose restart` reuses the old interpolated value).
+
+The Authelia login portal is not affected by this variable — it
+self-localizes from the browser's `Accept-Language` header (German
+included), so no configuration is needed there.
+
 ## Quickstart
 
 ```bash
