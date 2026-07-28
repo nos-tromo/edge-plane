@@ -53,6 +53,9 @@ services:
       # Uniform federation UI-language switch for the landing page (en|de,
       # default en). Intentionally unprefixed — same name in every repo.
       RESPONSE_LANGUAGE: ${RESPONSE_LANGUAGE:-en}
+      # Optional support contact rendered on the portal's "report a problem"
+      # tile (hidden when unset). Never commit a real value.
+      EDGE_SUPPORT_CONTACT: ${EDGE_SUPPORT_CONTACT:-}
     ports:
       - "443:443"
       - "80:80"
