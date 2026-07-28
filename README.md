@@ -111,12 +111,49 @@ With real data in the DB, use `authelia storage encryption change-key`
 
 - **Provisioning** is operator-side: `make user` hashes a password; add the
   entry to `authelia/users.yml` (see `authelia/users.template.yml`).
-- **Password change** is self-service: users open the portal's
-  *Account settings* link (`/auth/settings`) and change their password there.
+  `authentication_backend.file.watch: true` re-reads the file on change, so
+  admin edits (new users, manual hash replacement) are picked up without an
+  `authelia` restart — configured for this and verified to apply on restart;
+  in local `make up-dev` testing on Docker Desktop for Mac, an edit made
+  directly on the host filesystem was not observed to trigger a live reload
+  within ~15 seconds (the bind-mounted filesystem may not propagate the
+  change-notify events Authelia's watcher relies on) — a restart always
+  picks it up immediately, so treat `watch: true` as a same-host / Linux
+  convenience, not something to depend on across every environment.
+- **Password change** is self-service and verified end-to-end: a user opens
+  the portal's *Account settings* link (`/auth/settings`), which triggers a
+  one-time verification code sent to Authelia's filesystem notifier; the
+  code is shown at `/auth-code`, gated to the account whose `X-Auth-Email`
+  matches the notification's recipient — no other logged-in account can see
+  it. Codes are single-use and valid for 5 minutes. Entering the code
+  elevates the session, and the subsequent password change writes the new
+  hash back to `authelia/users.yml`, confirmed to persist across an
+  `authelia` restart. (The `users.yml` bind mount must be writable — it was
+  briefly `:ro`, which made every change silently fail: the API returned
+  HTTP 500 while still mutating the in-memory user store, so the old
+  password stopped working and the new one worked until the next restart,
+  with nothing persisted to disk. Fixed by dropping `:ro` from that one
+  mount; `configuration.yml` itself stays read-only.)
+- Cross-user binding is enforced: a code requested by one account cannot be
+  read from `/auth-code` or redeemed via the elevation API by any other
+  account's session (verified with a second dev user — both the "no code
+  pending" render and a direct redemption attempt were rejected).
 - **Password reset** ("forgotten password") is admin-mediated by design: the
   filesystem notifier means Authelia's built-in reset flow cannot reach
   users, so it is disabled (`password_reset.disable: true`). To reset,
   run `make user` and replace the user's hash in `authelia/users.yml`.
+
+### Session behaviour
+
+Sessions last 12 h (4 h inactivity timeout; "remember me" 2 months).
+On expiry, in-flight requests/streams are not severed — forward-auth gates
+each new request — so server-side jobs keep running; the next UI request
+redirects to the login portal, and the page resumes after re-login.
+Verified with a shortened 2 m/1 m session: a request already authorized and
+in progress (a slow ~200 s upload, started before expiry) completed
+normally with the injected `X-Auth-User` header intact, while a fresh
+request issued afterward on the same now-expired session cookie received a
+302 to `/auth`.
 
 ## The trusted-header contract
 
