@@ -149,15 +149,15 @@
     }
     say(de ? 'Ändere …' : 'Changing …');
     api('POST', '/auth/api/user/session/elevation', {})
-      .then(function (r) { if (!r.ok) throw new Error('elevation start: HTTP ' + r.status); return getCode(0); })
+      .then(function (r) { if (!r.ok) throw new Error((de ? 'Elevation-Start fehlgeschlagen: HTTP ' : 'elevation start: HTTP ') + r.status); return getCode(0); })
       .then(function (code) { return api('PUT', '/auth/api/user/session/elevation', { otc: code }); })
       .then(function (r) {
-        if (!r.ok) throw new Error('elevation redeem: HTTP ' + r.status);
+        if (!r.ok) throw new Error((de ? 'Elevation-Bestätigung fehlgeschlagen: HTTP ' : 'elevation redeem: HTTP ') + r.status);
         return api('POST', '/auth/api/change-password', { old_password: oldPw, new_password: newPw });
       })
       .then(function (r) {
         if (r.status === 401 || r.status === 403) throw new Error(de ? 'aktuelles Passwort falsch' : 'current password incorrect');
-        if (!r.ok) throw new Error('change: HTTP ' + r.status);
+        if (!r.ok) throw new Error((de ? 'Änderung fehlgeschlagen: HTTP ' : 'change: HTTP ') + r.status);
         form.reset();
         say(de ? 'Passwort geändert.' : 'Password changed.');
       })

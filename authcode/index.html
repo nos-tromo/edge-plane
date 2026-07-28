@@ -40,7 +40,10 @@
            COMPLETE A REQUESTED ACTION"), live-verified to false-positive
            before the code itself. The actual code instead sits alone on
            its own line between two dashed separator lines, so isolate
-           that block first, then pull the code out of it. */}}
+           that block first, then pull the code out of it. This depends
+           on the notifier's boilerplate shape (the dashed-separator
+           layout) — re-verify against a live notification if the
+           notifier template or Authelia's built-in template changes. */}}
       {{$block := regexFind "(?s)-{10,}\\r?\\n\\r?\\n[A-Z0-9]{8}\\r?\\n\\r?\\n-{10,}" $raw}}
       {{$otc := regexFind "[A-Z0-9]{8}" $block}}
       {{if $otc}}<p><code id="otc" style="font-size:1.6rem; letter-spacing:.2rem;">{{$otc | html}}</code></p>{{end}}
