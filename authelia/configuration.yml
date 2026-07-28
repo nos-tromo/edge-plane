@@ -12,6 +12,7 @@ log:
 authentication_backend:
   file:
     path: /config/users.yml
+    watch: true
   # Self-service password change via the settings UI (/auth/settings).
   password_change:
     disable: false
