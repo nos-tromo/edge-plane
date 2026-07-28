@@ -35,7 +35,7 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 | `/webui/*` | — | forward_auth | redirects to the dedicated `:8443` site (below) — Open WebUI has no sub-path support |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy` |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
-| `/auth-code` | `authelia:9091` | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
+| `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
 | everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and account settings link |
 
@@ -143,6 +143,12 @@ With real data in the DB, use `authelia storage encryption change-key`
   filesystem notifier means Authelia's built-in reset flow cannot reach
   users, so it is disabled (`password_reset.disable: true`). To reset,
   run `make user` and replace the user's hash in `authelia/users.yml`.
+- **Back up `authelia/users.yml`**: it is gitignored and lives outside the
+  `edge-state`/`edge-ca` volumes, so with self-service password change it is
+  now the *only* copy of user-chosen credentials — restoring it from
+  `users.template.yml` silently reverts every user's password. Authelia
+  rewrites the file to its full schema on the first self-service change, so
+  a post-rollout diff looking unfamiliar is expected.
 
 ### Session behaviour
 

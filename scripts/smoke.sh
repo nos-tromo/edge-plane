@@ -87,6 +87,12 @@ ac_body=$(run_curl "auth-code raw-file probe" -b "$JAR" "$BASE/auth-code/notify/
 grep -q "<title>" <<<"$ac_body" \
   || fail "/auth-code/notify/notification.txt did not render the viewer page:
 $ac_body"
+grep -qE "<title>(Verification code|Bestätigungscode)</title>" <<<"$ac_body" \
+  || fail "/auth-code/notify/notification.txt did not render the viewer's title:
+$ac_body"
+grep -q "^Date:" <<<"$ac_body" \
+  && fail "/auth-code/notify/notification.txt leaked the raw notification dump:
+$ac_body"
 echo "ok: auth-code gated and raw file unreachable"
 
 echo "SMOKE PASS"

@@ -74,10 +74,11 @@
   }
   function probe() {
     document.querySelectorAll('.dot[data-probe]').forEach(function (dot) {
-      fetch(dot.dataset.probe, { method: 'HEAD', cache: 'no-store' })
+      fetch(dot.dataset.probe, { method: 'HEAD', cache: 'no-store', redirect: 'manual' })
         .then(function (res) {
           if (res.ok) { dot.dataset.state = 'online'; }
           else if (res.status === 403) { delete dot.dataset.state; } /* restricted, not down */
+          else if (res.type === 'opaqueredirect') { delete dot.dataset.state; } /* expired session -> /auth, not down */
           else { dot.dataset.state = 'offline'; }
         })
         .catch(function () { dot.dataset.state = 'offline'; });

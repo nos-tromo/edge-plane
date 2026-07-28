@@ -21,6 +21,9 @@
   {{$shown := false}}
   {{if fileExists "notify/notification.txt"}}
     {{$raw := readFile "notify/notification.txt"}}
+    {{/* Assumes the Recipient: line contains exactly one email-shaped token
+         (Authelia mail.Address rendering) — revisit if the notifier format
+         ever grows a second address on that line. */}}
     {{$reciLine := regexFind "(?mi)^Recipient:.*$" $raw}}
     {{$recipient := regexFind "[\\w.+-]+@[\\w.-]+" $reciLine | lower}}
     {{if and $email (eq $email $recipient)}}
