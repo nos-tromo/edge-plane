@@ -68,6 +68,8 @@ services:
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
       - ../landing:/srv/landing:ro
       - ../certs:/etc/caddy/certs:ro
+      - ../authcode:/srv/authcode:ro
+      - edge-notify:/srv/authcode/notify:ro
       - edge-ca:/data
     networks:
       default:
@@ -101,6 +103,7 @@ services:
       - ../authelia/configuration.yml:/config/configuration.yml:ro
       - ../authelia/users.yml:/config/users.yml:ro
       - edge-state:/data
+      - edge-notify:/notify
     networks:
       default:
     expose:
@@ -112,3 +115,6 @@ volumes:
     external: true
   edge-ca:
     external: true
+  # Project-scoped, NOT external — holds only short-lived one-time codes,
+  # not durable identity state.
+  edge-notify:

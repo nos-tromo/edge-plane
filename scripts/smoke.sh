@@ -78,4 +78,15 @@ grep -q 'status-probe' <<<"$landing_body" \
   || fail "landing page is missing the status probe script"
 echo "ok: portal page (app grid + status probe)"
 
+# Code-viewer page: auth-gated, and no path under it serves the raw
+# notification file (the rewrite pins everything to the template page).
+ac_unauth=$(run_curl "unauthenticated auth-code request" -o /dev/null -w '%{http_code}' \
+  -H 'Accept: text/html' "$BASE/auth-code")
+[[ "$ac_unauth" == "302" ]] || fail "expected 302 for unauthenticated /auth-code, got: $ac_unauth"
+ac_body=$(run_curl "auth-code raw-file probe" -b "$JAR" "$BASE/auth-code/notify/notification.txt")
+grep -q "<title>" <<<"$ac_body" \
+  || fail "/auth-code/notify/notification.txt did not render the viewer page:
+$ac_body"
+echo "ok: auth-code gated and raw file unreachable"
+
 echo "SMOKE PASS"

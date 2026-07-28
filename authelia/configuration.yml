@@ -60,4 +60,4 @@ storage:
 
 notifier:
   filesystem:
-    filename: /data/notification.txt
+    filename: /notify/notification.txt
