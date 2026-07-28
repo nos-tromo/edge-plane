@@ -111,10 +111,31 @@ step, no new container. Changes:
 - **Live status.** Client-side JS issues same-origin `HEAD` requests to
   each app path (e.g. `/chorus/`) and renders an online/offline indicator
   per tile; refresh on load and every 60 s. No new endpoints or backend.
-- **User section.** Signed-in-as (existing), link to the Authelia settings
-  UI (`/auth/settings`) for password change, a "Get verification code" link
-  to `/auth-code` (the code-viewer page, §2), logout (existing), and a note
-  that password reset is handled by the administrator.
+- **User section.** Signed-in-as (existing), an **inline password-change
+  form** (revised 2026-07-29 — see below), a "Get verification code"
+  fallback link to `/auth-code` (the code-viewer page, §2), logout
+  (existing), and a note that password reset is handled by the
+  administrator.
+
+  **Inline password change (supersedes the `/auth/settings` link):** live
+  use showed Authelia's settings SPA is a dead end — it has no navigation
+  back to the portal, no config knob for one, and the stock Caddy image
+  cannot rewrite its HTML. Instead the portal renders the form itself and
+  drives Authelia's own (undocumented but live-verified) API: `POST
+  /auth/api/user/session/elevation` (starts the flow, mails the OTC to the
+  notifier), fetch `/auth-code` and read the machine-readable code marker
+  (`<code id="otc">`, added to the viewer for this), `PUT
+  /auth/api/user/session/elevation` `{"otc": ...}` (redeem), `POST
+  /auth/api/change-password` `{"old_password","new_password"}`. The OTC is
+  auto-redeemed: it proves mailbox access, and our "mailbox" is a page
+  gated by the same session and recipient match, so auto-redeeming is
+  security-equivalent to manual copying — the effective protection is the
+  `old_password` requirement, the industry-standard bar. The
+  `/auth/settings` link is dropped (no other settings feature is in use —
+  no 2FA enrollment). Risk accepted: undocumented API may shift on an
+  Authelia bump — guarded by a smoke-test cycle that exercises all three
+  endpoints (change to a temp password and back), so upgrades fail in
+  CI/staging, not production.
 - **Report a problem.** A static tile with contact instructions. The
   contact value comes from a new optional env var `EDGE_SUPPORT_CONTACT`
   (rendered via the template filter; tile hidden when unset) so no real
@@ -136,6 +157,9 @@ step, no new container. Changes:
   the status-script marker.
 - Code-viewer smoke checks: unauthenticated `/auth-code` redirects to the
   portal; no `/auth-code/...` path returns the raw notification file.
+- Password-API smoke cycle (guards the undocumented endpoints the inline
+  form uses): elevation start → OTC via `/auth-code` marker → redeem →
+  change to a temp password → verify login → change back → verify original.
 - Manual: password-change flow end-to-end via the code-viewer page;
   cross-user code-binding check (ship-gate, §2); job-survival test (§1).
 - CI as usual (compose + Caddyfile validation, yamllint/shellcheck,

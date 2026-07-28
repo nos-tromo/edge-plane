@@ -583,3 +583,205 @@ git push -u origin feature/rollout-readiness
 ```
 
 PR to `main`; the `release-tag` workflow mints `v0.3.0` on merge.
+
+---
+
+### Task 8: Inline password-change form on the portal
+
+Added 2026-07-29 (design §3, revised user section): Authelia's settings SPA
+is a navigational dead end, so the portal drives the password change itself
+via Authelia's session-cookie API (endpoints live-verified in Task 6). The
+`/auth/settings` link is removed; `/auth-code` stays as the machine-readable
+OTC transport and fallback link.
+
+**Files:**
+- Modify: `landing/index.html` (form + JS, drop settings link)
+- Modify: `authcode/index.html` (machine-readable `<code id="otc">` marker)
+- Modify: `scripts/smoke.sh` (password-API cycle)
+- Modify: `README.md` (User accounts: portal form is the flow now)
+
+**Interfaces:**
+- Consumes: `POST /auth/api/user/session/elevation` (`{}` body → 200, OTC
+  written to notifier), `PUT /auth/api/user/session/elevation`
+  (`{"otc":"..."}` — verify exact field name live; adapt and record if it
+  differs), `POST /auth/api/change-password`
+  (`{"old_password","new_password"}`), all same-origin with session cookie.
+- Produces: portal form marker `id="pwform"`; viewer marker
+  `<code id="otc">` (exactly the code, nothing else, only on recipient
+  match).
+
+- [ ] **Step 1: Add the OTC marker to `authcode/index.html`**
+
+Inside the recipient-matched branch (where `$shown` is set), before the
+`<pre>`, extract the code and render it prominently:
+
+```html
+      {{/* The OTC is the notification body's standalone 8-char uppercase
+           alphanumeric token (live-verified format). Shown big for humans,
+           and as the machine-readable contract the portal form reads. */}}
+      {{$otc := regexFind "\\b[A-Z0-9]{8}\\b" $raw}}
+      {{if $otc}}<p><code id="otc" style="font-size:1.6rem; letter-spacing:.2rem;">{{$otc | html}}</code></p>{{end}}
+```
+
+Verify the regex against a real notification (trigger one in dev); if the
+live body contains other 8-char uppercase tokens, tighten the pattern
+(e.g. anchor on the sentence containing "code") and record the adaptation.
+
+- [ ] **Step 2: Replace the settings link with the form in `landing/index.html`**
+
+In the user section, REMOVE the `/auth/settings` link line. After the
+`links` div, add:
+
+```html
+    <details id="pwchange">
+      <summary>{{if $de}}Passwort ändern{{else}}Change password{{end}}</summary>
+      <form id="pwform">
+        <input type="password" name="oldpw" required autocomplete="current-password"
+               placeholder="{{if $de}}Aktuelles Passwort{{else}}Current password{{end}}">
+        <input type="password" name="newpw" required autocomplete="new-password"
+               placeholder="{{if $de}}Neues Passwort{{else}}New password{{end}}">
+        <input type="password" name="newpw2" required autocomplete="new-password"
+               placeholder="{{if $de}}Neues Passwort wiederholen{{else}}Repeat new password{{end}}">
+        <button type="submit">{{if $de}}Ändern{{else}}Change{{end}}</button>
+        <p id="pwmsg" role="status"></p>
+      </form>
+    </details>
+```
+
+Style consistently with the page (same surface/border tokens for inputs and
+button, `#pwmsg[data-state="error"]` in `--down`, success in `--ok`; a few
+CSS lines in the existing `<style>` block).
+
+- [ ] **Step 3: Add the form driver JS**
+
+New IIFE after the status-probe script (same `<script>` tag is fine):
+
+```js
+/* pw-change */
+(function () {
+  var form = document.getElementById('pwform');
+  if (!form) return;
+  var msg = document.getElementById('pwmsg');
+  var de = document.documentElement.lang === 'de';
+  function say(text, isErr) { msg.textContent = text; msg.dataset.state = isErr ? 'error' : 'ok'; }
+  function api(method, path, body) {
+    return fetch(path, {
+      method: method, cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+  function getCode(attempt) {
+    return fetch('/auth-code', { cache: 'no-store' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var m = html.match(/id="otc"[^>]*>([A-Z0-9]+)</);
+        if (m) return m[1];
+        if (attempt >= 5) throw new Error(de ? 'kein Code auffindbar' : 'no code found');
+        return new Promise(function (r) { setTimeout(r, 1000); })
+          .then(function () { return getCode(attempt + 1); });
+      });
+  }
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var oldPw = form.elements.oldpw.value;
+    var newPw = form.elements.newpw.value;
+    if (newPw !== form.elements.newpw2.value) {
+      say(de ? 'Neue Passwörter stimmen nicht überein.' : 'New passwords do not match.', true);
+      return;
+    }
+    say(de ? 'Ändere …' : 'Changing …');
+    api('POST', '/auth/api/user/session/elevation', {})
+      .then(function (r) { if (!r.ok) throw new Error('elevation start: HTTP ' + r.status); return getCode(0); })
+      .then(function (code) { return api('PUT', '/auth/api/user/session/elevation', { otc: code }); })
+      .then(function (r) {
+        if (!r.ok) throw new Error('elevation redeem: HTTP ' + r.status);
+        return api('POST', '/auth/api/change-password', { old_password: oldPw, new_password: newPw });
+      })
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) throw new Error(de ? 'aktuelles Passwort falsch' : 'current password incorrect');
+        if (!r.ok) throw new Error('change: HTTP ' + r.status);
+        form.reset();
+        say(de ? 'Passwort geändert.' : 'Password changed.');
+      })
+      .catch(function (e) { say((de ? 'Fehlgeschlagen: ' : 'Failed: ') + e.message, true); });
+  });
+})();
+```
+
+Adapt the `otc` field name / endpoint shapes only if the live API rejects
+them, and record the actual shapes in your report.
+
+- [ ] **Step 4: Smoke the API cycle**
+
+After the auth-code block, before `echo "SMOKE PASS"` (uses the session jar
+from the login step; `PASSWORD` variable holds the original):
+
+```bash
+# Password self-service API cycle: guards the undocumented endpoints the
+# portal form depends on. Changes to a temp password and back; on a
+# mid-cycle failure the dev user may be left on $TMP_PW (echoed below).
+TMP_PW="smoke-temp-password"
+elev=$(run_curl "elevation start" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/auth/api/user/session/elevation")
+[[ "$elev" == "200" ]] || fail "elevation start returned HTTP $elev"
+otc=""
+for _ in 1 2 3 4 5; do
+  otc=$(run_curl "auth-code fetch" -b "$JAR" "$BASE/auth-code" \
+    | sed -n 's/.*id="otc"[^>]*>\([A-Z0-9]*\)<.*/\1/p')
+  [[ -n "$otc" ]] && break
+  sleep 1
+done
+[[ -n "$otc" ]] || fail "no OTC marker surfaced on /auth-code"
+redeem=$(run_curl "elevation redeem" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X PUT -H 'Content-Type: application/json' -d "{\"otc\":\"$otc\"}" \
+  "$BASE/auth/api/user/session/elevation")
+[[ "$redeem" == "200" ]] || fail "elevation redeem returned HTTP $redeem"
+chg=$(run_curl "password change" -b "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' \
+  -d "{\"old_password\":\"$PASSWORD\",\"new_password\":\"$TMP_PW\"}" \
+  "$BASE/auth/api/change-password")
+[[ "$chg" == "200" ]] || fail "password change returned HTTP $chg"
+JAR2="$(mktemp)"
+relogin=$(run_curl "temp-password login" -c "$JAR2" -o /dev/null -w '%{http_code}' \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$USER_NAME\",\"password\":\"$TMP_PW\"}" "$BASE/auth/api/firstfactor")
+rm -f "$JAR2"
+[[ "$relogin" == "200" ]] || fail "login with temp password failed (HTTP $relogin) — user may be on $TMP_PW"
+chback=$(run_curl "password revert" -b "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' \
+  -d "{\"old_password\":\"$TMP_PW\",\"new_password\":\"$PASSWORD\"}" \
+  "$BASE/auth/api/change-password")
+[[ "$chback" == "200" ]] || fail "password revert returned HTTP $chback — user is on $TMP_PW"
+echo "ok: password self-service API cycle (elevation, change, revert)"
+```
+
+(The revert reuses the still-elevated session — `elevation_lifespan`
+default is 10 minutes. If the live API demands re-elevation per change,
+add a second elevation cycle before the revert and record it.)
+
+- [ ] **Step 5: README sync**
+
+"User accounts" password-change bullet: the flow is now the portal's
+inline form (current + new password; the one-time code is fetched and
+redeemed automatically — it lives on `/auth-code` if ever needed manually);
+`/auth/settings` is no longer linked.
+
+- [ ] **Step 6: Validate**
+
+```bash
+docker compose --env-file .env -f docker/compose.yaml config --quiet
+make up-dev
+./scripts/smoke.sh        # all checks incl. the new cycle
+```
+
+Then exercise the FORM itself in dev (the smoke only proves the API): use
+the form to change the password and change it back, confirming the
+success/error messages render (wrong current password → error path too).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add landing/index.html authcode/index.html scripts/smoke.sh README.md
+git commit -m "feat: inline password-change form on the portal (drops settings-UI dead end)"
+```
