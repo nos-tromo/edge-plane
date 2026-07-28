@@ -1,0 +1,114 @@
+# Rollout-readiness release — session tuning, password self-service, portal upgrade
+
+Date: 2026-07-28
+Status: approved (design); implementation pending
+
+## Context
+
+First small-user-number rollout of the federation. Three gaps block it, all
+in this repo:
+
+1. Users are logged out after short periods of inactivity.
+2. Users cannot change their own passwords.
+3. The landing page is a bare link list — no app status, descriptions,
+   user settings, or support path — and carries the working-title branding.
+
+Explicitly out of scope (deferred by decision): self-signup / IdP migration
+(admin-provisioned accounts are acceptable at this scale), a dedicated
+tickets app (a portal "report a problem" tile replaces it), and the
+infra-ui AppHeader / theme-toggle rollout (separate work package).
+
+## 1. Session tuning
+
+`authelia/configuration.yml` sets no session lifetimes today, so Authelia
+defaults apply: 1 h absolute expiration, **5 min inactivity** — the root
+cause of the frequent logouts. Fix, in the session block:
+
+```yaml
+session:
+  expiration: 12h
+  inactivity: 4h
+  remember_me: 2M
+```
+
+Rationale: a workday-plus absolute lifetime; inactivity long enough that a
+meal break does not end the session; remember-me long enough that a
+vacation does not (2 months, per review). Config-only; takes effect on
+restart; no storage migration.
+
+**Job-survival test** (manual, once, in dev): start a long-running app job,
+force session expiry with temporarily short lifetimes, and record the
+outcome. Expected per the forward-auth model: `forward_auth` gates each
+request, so the server-side job completes and any established stream stays
+open; the UI's next poll redirects to login. Document the observed
+behaviour in the README.
+
+## 2. Password self-service
+
+Authelia 4.39 (pinned: 4.39.20) ships self-service password change in its
+settings UI, enabled by default. Make the posture explicit in
+`authelia/configuration.yml`:
+
+```yaml
+authentication_backend:
+  file:
+    path: /config/users.yml
+  password_change:
+    disable: false
+  password_reset:
+    disable: true
+```
+
+`password_reset` is disabled deliberately: reset requires the notifier, and
+this deployment's filesystem notifier writes the "email" to a file only
+operators can read — so the built-in "Forgot password?" affordance is a
+dead end. Forgotten passwords stay admin-mediated (`make user`, replace the
+hash in `users.yml`), and the portal says so.
+
+**Verification item:** confirm in `make up-dev` that the password-change
+flow completes against the file backend without an elevated-session
+one-time code (the OTC would land in the notifier file — unusable by
+users). If an OTC is demanded, evaluate `identity_validation`
+options before shipping; the feature does not ship half-working.
+
+README gets a short "User accounts" section: provisioning, self-service
+change via the settings UI, admin-mediated reset.
+
+## 3. Portal upgrade
+
+`landing/index.html` stays a single Caddy-templated static file — no build
+step, no new container. Changes:
+
+- **App tiles.** One card per app: name, one-line synthetic description,
+  open link. Grafana's tile is shown to everyone; the existing admins-only
+  ACL rule enforces access (Caddy templates cannot see group membership —
+  accepted trade-off).
+- **Live status.** Client-side JS issues same-origin `HEAD` requests to
+  each app path (e.g. `/chorus/`) and renders an online/offline indicator
+  per tile; refresh on load and every 60 s. No new endpoints or backend.
+- **User section.** Signed-in-as (existing), link to the Authelia settings
+  UI (`/auth/settings`) for password change, logout (existing), and a note
+  that password reset is handled by the administrator.
+- **Report a problem.** A static tile with contact instructions. The
+  contact value comes from a new optional env var `EDGE_SUPPORT_CONTACT`
+  (rendered via the template filter; tile hidden when unset) so no real
+  contact data is committed.
+- **De-branding.** Neutral title/heading (default "Apps"); removes the
+  working-title branding currently in the committed file. Keeps the
+  existing `RESPONSE_LANGUAGE` en/de switch for all new strings.
+- **Styling.** Dark theme matching the infra-ui token palette, copied as
+  CSS variables (the portal does not consume the pnpm package). Ships
+  dark-only; it pre-seeds the shared theme `localStorage` key to `dark` so
+  the later infra-ui theme-toggle work has a consistent origin-wide
+  default.
+
+## Testing & release
+
+- `scripts/smoke.sh` stays green — the strip → auth → inject header
+  contract is untouched by all three changes.
+- Add a portal smoke check: authenticated `GET /` returns 200 and contains
+  the status-script marker.
+- Manual: password-change flow end-to-end; job-survival test (§1).
+- CI as usual (compose + Caddyfile validation, yamllint/shellcheck,
+  bundle-lib drift check).
+- Ships as one release: bump `VERSION`, merge, `release-tag` mints the tag.
