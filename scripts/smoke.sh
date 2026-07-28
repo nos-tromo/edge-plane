@@ -95,4 +95,41 @@ grep -q "^Date:" <<<"$ac_body" \
 $ac_body"
 echo "ok: auth-code gated and raw file unreachable"
 
+# Password self-service API cycle: guards the undocumented endpoints the
+# portal form depends on. Changes to a temp password and back; on a
+# mid-cycle failure the dev user may be left on $TMP_PW (echoed below).
+TMP_PW="smoke-temp-password"
+elev=$(run_curl "elevation start" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/auth/api/user/session/elevation")
+[[ "$elev" == "200" ]] || fail "elevation start returned HTTP $elev"
+otc=""
+for _ in 1 2 3 4 5; do
+  otc=$(run_curl "auth-code fetch" -b "$JAR" "$BASE/auth-code" \
+    | sed -n 's/.*id="otc"[^>]*>\([A-Z0-9]*\)<.*/\1/p')
+  [[ -n "$otc" ]] && break
+  sleep 1
+done
+[[ -n "$otc" ]] || fail "no OTC marker surfaced on /auth-code"
+redeem=$(run_curl "elevation redeem" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X PUT -H 'Content-Type: application/json' -d "{\"otc\":\"$otc\"}" \
+  "$BASE/auth/api/user/session/elevation")
+[[ "$redeem" == "200" ]] || fail "elevation redeem returned HTTP $redeem"
+chg=$(run_curl "password change" -b "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' \
+  -d "{\"old_password\":\"$PASSWORD\",\"new_password\":\"$TMP_PW\"}" \
+  "$BASE/auth/api/change-password")
+[[ "$chg" == "200" ]] || fail "password change returned HTTP $chg"
+JAR2="$(mktemp)"
+relogin=$(run_curl "temp-password login" -c "$JAR2" -o /dev/null -w '%{http_code}' \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$USER_NAME\",\"password\":\"$TMP_PW\"}" "$BASE/auth/api/firstfactor")
+rm -f "$JAR2"
+[[ "$relogin" == "200" ]] || fail "login with temp password failed (HTTP $relogin) — user may be on $TMP_PW"
+chback=$(run_curl "password revert" -b "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' \
+  -d "{\"old_password\":\"$TMP_PW\",\"new_password\":\"$PASSWORD\"}" \
+  "$BASE/auth/api/change-password")
+[[ "$chback" == "200" ]] || fail "password revert returned HTTP $chback — user is on $TMP_PW"
+echo "ok: password self-service API cycle (elevation, change, revert)"
+
 echo "SMOKE PASS"

@@ -37,7 +37,7 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
-| everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and account settings link |
+| everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and inline password-change form |
 
 **Open WebUI (`https://<EDGE_HOST>:8443/`, separate site block).** The
 upstream image has no base-path support: its SvelteKit frontend bakes
@@ -121,16 +121,20 @@ With real data in the DB, use `authelia storage encryption change-key`
   change-notify events Authelia's watcher relies on) — a restart always
   picks it up immediately, so treat `watch: true` as a same-host / Linux
   convenience, not something to depend on across every environment.
-- **Password change** is self-service and verified end-to-end: a user opens
-  the portal's *Account settings* link (`/auth/settings`), which triggers a
-  one-time verification code sent to Authelia's filesystem notifier; the
-  code is shown at `/auth-code`, gated to the account whose `X-Auth-Email`
-  matches the notification's recipient — no other logged-in account can see
-  it. Codes are single-use and valid for 5 minutes. Entering the code
-  elevates the session, and the subsequent password change writes the new
-  hash back to `authelia/users.yml`, confirmed to persist across an
-  `authelia` restart. (The `users.yml` bind mount must be writable — it was
-  briefly `:ro`, which made every change silently fail: the API returned
+- **Password change** is self-service and verified end-to-end: the portal's
+  inline *Change password* form (current + new password) drives Authelia's
+  session-elevation API directly — no navigation to Authelia's own settings
+  UI, which is a dead end behind the gateway. Submitting the form starts
+  elevation, which sends a one-time verification code to Authelia's
+  filesystem notifier; the code is fetched and redeemed automatically. The
+  code also remains available at `/auth-code` if ever needed manually,
+  gated to the account whose `X-Auth-Email` matches the notification's
+  recipient — no other logged-in account can see it. Codes are single-use
+  and valid for 5 minutes. Redeeming the code elevates the session, and the
+  subsequent password change writes the new hash back to
+  `authelia/users.yml`, confirmed to persist across an `authelia` restart.
+  (The `users.yml` bind mount must be writable — it was briefly `:ro`,
+  which made every change silently fail: the API returned
   HTTP 500 while still mutating the in-memory user store, so the old
   password stopped working and the new one worked until the next restart,
   with nothing persisted to disk. Fixed by dropping `:ro` from that one

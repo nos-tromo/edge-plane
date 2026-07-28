@@ -35,6 +35,20 @@
   section.user a:hover { text-decoration: underline; }
   section.user .links { margin-top: .5rem; display: flex; gap: 1.25rem;
                         flex-wrap: wrap; }
+  #pwchange { margin-top: 1rem; }
+  #pwchange summary { color: var(--accent); cursor: pointer; }
+  #pwform { margin-top: .75rem; display: flex; flex-direction: column;
+            gap: .5rem; max-width: 20rem; }
+  #pwform input { background: var(--surface); border: 1px solid var(--border);
+                  border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
+                  font-size: .9rem; }
+  #pwform button { background: var(--surface); border: 1px solid var(--border);
+                    border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
+                    font-size: .9rem; cursor: pointer; align-self: flex-start; }
+  #pwform button:hover { border-color: var(--accent); }
+  #pwmsg { margin: 0; }
+  #pwmsg[data-state="error"] { color: var(--down); }
+  #pwmsg[data-state="ok"] { color: var(--ok); }
 </style>
 </head>
 <body>
@@ -59,11 +73,23 @@
   <section class="user">
     <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong></span>
     <div class="links">
-      <a href="/auth/settings">{{if $de}}Kontoeinstellungen (Passwort ändern){{else}}Account settings (change password){{end}}</a>
       <a href="/auth-code">{{if $de}}Bestätigungscode abrufen{{else}}Get verification code{{end}}</a>
       <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
     </div>
     <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
+    <details id="pwchange">
+      <summary>{{if $de}}Passwort ändern{{else}}Change password{{end}}</summary>
+      <form id="pwform">
+        <input type="password" name="oldpw" required autocomplete="current-password"
+               placeholder="{{if $de}}Aktuelles Passwort{{else}}Current password{{end}}">
+        <input type="password" name="newpw" required autocomplete="new-password"
+               placeholder="{{if $de}}Neues Passwort{{else}}New password{{end}}">
+        <input type="password" name="newpw2" required autocomplete="new-password"
+               placeholder="{{if $de}}Neues Passwort wiederholen{{else}}Repeat new password{{end}}">
+        <button type="submit">{{if $de}}Ändern{{else}}Change{{end}}</button>
+        <p id="pwmsg" role="status"></p>
+      </form>
+    </details>
   </section>
 </main>
 <script>
@@ -86,6 +112,57 @@
   }
   probe();
   setInterval(probe, 60000);
+})();
+
+/* pw-change */
+(function () {
+  var form = document.getElementById('pwform');
+  if (!form) return;
+  var msg = document.getElementById('pwmsg');
+  var de = document.documentElement.lang === 'de';
+  function say(text, isErr) { msg.textContent = text; msg.dataset.state = isErr ? 'error' : 'ok'; }
+  function api(method, path, body) {
+    return fetch(path, {
+      method: method, cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+  function getCode(attempt) {
+    return fetch('/auth-code', { cache: 'no-store' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var m = html.match(/id="otc"[^>]*>([A-Z0-9]+)</);
+        if (m) return m[1];
+        if (attempt >= 5) throw new Error(de ? 'kein Code auffindbar' : 'no code found');
+        return new Promise(function (r) { setTimeout(r, 1000); })
+          .then(function () { return getCode(attempt + 1); });
+      });
+  }
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var oldPw = form.elements.oldpw.value;
+    var newPw = form.elements.newpw.value;
+    if (newPw !== form.elements.newpw2.value) {
+      say(de ? 'Neue Passwörter stimmen nicht überein.' : 'New passwords do not match.', true);
+      return;
+    }
+    say(de ? 'Ändere …' : 'Changing …');
+    api('POST', '/auth/api/user/session/elevation', {})
+      .then(function (r) { if (!r.ok) throw new Error('elevation start: HTTP ' + r.status); return getCode(0); })
+      .then(function (code) { return api('PUT', '/auth/api/user/session/elevation', { otc: code }); })
+      .then(function (r) {
+        if (!r.ok) throw new Error('elevation redeem: HTTP ' + r.status);
+        return api('POST', '/auth/api/change-password', { old_password: oldPw, new_password: newPw });
+      })
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) throw new Error(de ? 'aktuelles Passwort falsch' : 'current password incorrect');
+        if (!r.ok) throw new Error('change: HTTP ' + r.status);
+        form.reset();
+        say(de ? 'Passwort geändert.' : 'Password changed.');
+      })
+      .catch(function (e) { say((de ? 'Fehlgeschlagen: ' : 'Failed: ') + e.message, true); });
+  });
 })();
 </script>
 </body>

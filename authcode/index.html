@@ -34,6 +34,16 @@
     {{$reciCount := len (regexFindAll "(?mi)^Recipient:" $raw -1)}}
     {{if and $email (eq $reciCount 1) (eq $email $recipient)}}
       {{$shown = true}}
+      {{/* The OTC is an 8-char uppercase alphanumeric token, but the plain
+           \b[A-Z0-9]{8}\b pattern also matches other 8-letter uppercase
+           words in the notifier's boilerplate (e.g. "COMPLETE" in "...TO
+           COMPLETE A REQUESTED ACTION"), live-verified to false-positive
+           before the code itself. The actual code instead sits alone on
+           its own line between two dashed separator lines, so isolate
+           that block first, then pull the code out of it. */}}
+      {{$block := regexFind "(?s)-{10,}\\r?\\n\\r?\\n[A-Z0-9]{8}\\r?\\n\\r?\\n-{10,}" $raw}}
+      {{$otc := regexFind "[A-Z0-9]{8}" $block}}
+      {{if $otc}}<p><code id="otc" style="font-size:1.6rem; letter-spacing:.2rem;">{{$otc | html}}</code></p>{{end}}
       <pre>{{$raw | html}}</pre>
       <p class="muted">{{if $de}}Der Code ist 5 Minuten gültig und nur einmal verwendbar.{{else}}The code is valid for 5 minutes and single-use.{{end}}</p>
     {{end}}
