@@ -69,9 +69,13 @@ grep -qi "^X-Auth-Groups:.*admins" <<<"$body" && fail "forged X-Auth-Groups reac
 $body"
 echo "ok: X-Auth-User + X-Auth-Groups injected; forged headers stripped"
 
-# Landing page reachable with the session.
-landing=$(run_curl "landing page request" -b "$JAR" -o /dev/null -w '%{http_code}' "$BASE/")
-[[ "$landing" == "200" ]] || fail "landing page returned HTTP $landing"
-echo "ok: landing page"
+# Portal reachable with the session, and actually the portal: the rendered
+# page must contain the app grid and the status-probe script.
+landing_body=$(run_curl "landing page request" -b "$JAR" "$BASE/")
+grep -q 'id="app-grid"' <<<"$landing_body" \
+  || fail "landing page is missing the app grid"
+grep -q 'status-probe' <<<"$landing_body" \
+  || fail "landing page is missing the status probe script"
+echo "ok: portal page (app grid + status probe)"
 
 echo "SMOKE PASS"
