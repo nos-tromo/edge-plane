@@ -107,6 +107,17 @@ make up
 With real data in the DB, use `authelia storage encryption change-key`
 (run with the old key still configured) instead of deleting.
 
+## User accounts
+
+- **Provisioning** is operator-side: `make user` hashes a password; add the
+  entry to `authelia/users.yml` (see `authelia/users.template.yml`).
+- **Password change** is self-service: users open the portal's
+  *Account settings* link (`/auth/settings`) and change their password there.
+- **Password reset** ("forgotten password") is admin-mediated by design: the
+  filesystem notifier means Authelia's built-in reset flow cannot reach
+  users, so it is disabled (`password_reset.disable: true`). To reset,
+  run `make user` and replace the user's hash in `authelia/users.yml`.
+
 ## The trusted-header contract
 
 Three apps (chorus, docint, Nextext) already implement an identical

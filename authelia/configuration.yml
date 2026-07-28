@@ -12,6 +12,14 @@ log:
 authentication_backend:
   file:
     path: /config/users.yml
+  # Self-service password change via the settings UI (/auth/settings).
+  password_change:
+    disable: false
+  # Reset needs the notifier; ours is the filesystem notifier (airgap), so
+  # the built-in "forgot password" flow would dead-end in a file only
+  # operators read. Resets are admin-mediated instead (README §User accounts).
+  password_reset:
+    disable: true
 
 access_control:
   default_policy: deny
