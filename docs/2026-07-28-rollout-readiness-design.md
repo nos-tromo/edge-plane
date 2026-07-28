@@ -65,11 +65,30 @@ operators can read — so the built-in "Forgot password?" affordance is a
 dead end. Forgotten passwords stay admin-mediated (`make user`, replace the
 hash in `users.yml`), and the portal says so.
 
-**Verification item:** confirm in `make up-dev` that the password-change
-flow completes against the file backend without an elevated-session
-one-time code (the OTC would land in the notifier file — unusable by
-users). If an OTC is demanded, evaluate `identity_validation`
-options before shipping; the feature does not ship half-working.
+**Verification item (RESOLVED 2026-07-28):** live verification showed the
+password-change flow DOES demand an elevated-session one-time code, and
+Authelia 4.39 offers no way to disable that (the only skip requires 2FA
+enrollment, which itself requires elevation). Decision: deliver the code to
+the user instead of the operator — a **code-viewer page** on the gateway,
+recipient-matching variant:
+
+- The filesystem notifier writes to a small dedicated compose volume
+  (`edge-notify`) shared by Authelia (rw) and Caddy (ro) — the encrypted
+  SQLite state stays unmounted from Caddy.
+- Caddy serves an authenticated `/auth-code` page (`templates` directive,
+  no new service) that reads the notification file and shows its content
+  **only when the notification's `Recipient:` matches the signed-in user's
+  `X-Auth-Email`** (case-insensitive); otherwise it says no code is
+  pending for this account. The raw notification file must not be
+  reachable through any route.
+- The portal's user section links the page ("Get verification code").
+- Codes are single-use and expire in 5 minutes; the file holds only the
+  latest notification.
+
+**Ship-gate (replaces the old one):** verify with a second dev user that a
+code requested by user A cannot be redeemed from user B's session
+(cross-user binding). If that binding does not hold, the feature does not
+ship — fall back to removing the settings link.
 
 README gets a short "User accounts" section: provisioning, self-service
 change via the settings UI, admin-mediated reset.
@@ -87,7 +106,8 @@ step, no new container. Changes:
   each app path (e.g. `/chorus/`) and renders an online/offline indicator
   per tile; refresh on load and every 60 s. No new endpoints or backend.
 - **User section.** Signed-in-as (existing), link to the Authelia settings
-  UI (`/auth/settings`) for password change, logout (existing), and a note
+  UI (`/auth/settings`) for password change, a "Get verification code" link
+  to `/auth-code` (the code-viewer page, §2), logout (existing), and a note
   that password reset is handled by the administrator.
 - **Report a problem.** A static tile with contact instructions. The
   contact value comes from a new optional env var `EDGE_SUPPORT_CONTACT`
@@ -108,7 +128,10 @@ step, no new container. Changes:
   contract is untouched by all three changes.
 - Add a portal smoke check: authenticated `GET /` returns 200 and contains
   the status-script marker.
-- Manual: password-change flow end-to-end; job-survival test (§1).
+- Code-viewer smoke checks: unauthenticated `/auth-code` redirects to the
+  portal; no `/auth-code/...` path returns the raw notification file.
+- Manual: password-change flow end-to-end via the code-viewer page;
+  cross-user code-binding check (ship-gate, §2); job-survival test (§1).
 - CI as usual (compose + Caddyfile validation, yamllint/shellcheck,
   bundle-lib drift check).
 - Ships as one release: bump `VERSION`, merge, `release-tag` mints the tag.

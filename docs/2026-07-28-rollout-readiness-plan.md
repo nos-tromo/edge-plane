@@ -323,7 +323,166 @@ git commit -m "test: smoke asserts portal grid and status probe"
 
 ---
 
-### Task 5: Manual verification (password change + job survival)
+### Task 5: One-time-code viewer page (`/auth-code`)
+
+Added 2026-07-28 after live verification showed password change demands an
+elevated-session one-time code (see design §2, resolved verification item).
+Recipient-matching variant: the authenticated page shows the notification
+content only when its `Recipient:` matches the signed-in user's
+`X-Auth-Email`.
+
+**Files:**
+- Modify: `authelia/configuration.yml` (notifier filename)
+- Modify: `docker/compose.yaml` (new `edge-notify` volume + mounts)
+- Create: `authcode/index.html` (Caddy-templated viewer page)
+- Create: `authcode/notify/.gitkeep` (mountpoint for the nested volume)
+- Modify: `caddy/Caddyfile` (`/auth-code` route)
+- Modify: `landing/index.html` (user-section link)
+- Modify: `scripts/smoke.sh` (two new checks)
+
+**Interfaces:**
+- Consumes: `authed` snippet, `RESPONSE_LANGUAGE` env, `X-Auth-Email` header.
+- Produces: `/auth-code` page Task 6 verifies end-to-end; smoke markers below.
+
+- [ ] **Step 1: Move the notifier to a dedicated volume**
+
+`authelia/configuration.yml` notifier block becomes:
+
+```yaml
+notifier:
+  filesystem:
+    filename: /notify/notification.txt
+```
+
+`docker/compose.yaml`: add `edge-notify:` to the top-level `volumes:` map
+(project-scoped, NOT external — it holds only short-lived codes); add
+`edge-notify:/notify` to the authelia service's volume list; add these two
+to the caddy service's volume list:
+
+```yaml
+      - ../authcode:/srv/authcode:ro
+      - edge-notify:/srv/authcode/notify:ro
+```
+
+(The named volume nests inside the read-only bind — a directory mountpoint,
+which Docker permits; `authcode/notify/.gitkeep` makes the mountpoint exist.
+The repo's known gotcha is about nesting a FILE mount, not a volume.)
+
+- [ ] **Step 2: Create `authcode/index.html`**
+
+```html
+{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}<!doctype html>
+<html lang="{{if $de}}de{{else}}en{{end}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if $de}}Bestätigungscode{{else}}Verification code{{end}}</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0b0d10; color: #e6e8eb;
+         display: grid; place-items: center; min-height: 100vh; margin: 0; }
+  main { max-width: 40rem; padding: 2rem; text-align: center; }
+  pre { background: #15181d; border: 1px solid #262b33; border-radius: .6rem;
+        padding: 1rem; text-align: left; white-space: pre-wrap; word-break: break-word; }
+  a { color: #8ab4f8; }
+  p.muted { color: #8b939e; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{if $de}}Bestätigungscode{{else}}Verification code{{end}}</h1>
+  {{$email := .Req.Header.Get "X-Auth-Email" | lower}}
+  {{$shown := false}}
+  {{if fileExists "notify/notification.txt"}}
+    {{$raw := readFile "notify/notification.txt"}}
+    {{$recipient := regexFind "(?mi)^Recipient:.*$" $raw | replace "Recipient:" "" | trim | lower}}
+    {{if and $email (eq $email $recipient)}}
+      {{$shown = true}}
+      <pre>{{$raw | html}}</pre>
+      <p class="muted">{{if $de}}Der Code ist 5 Minuten gültig und nur einmal verwendbar.{{else}}The code is valid for 5 minutes and single-use.{{end}}</p>
+    {{end}}
+  {{end}}
+  {{if not $shown}}
+    <p>{{if $de}}Für dieses Konto liegt kein Code vor.{{else}}No code is pending for this account.{{end}}</p>
+  {{end}}
+  <p><a href="/">{{if $de}}Zurück zur Übersicht{{else}}Back to overview{{end}}</a></p>
+</main>
+</body>
+</html>
+```
+
+If the live notification file's format differs from the assumed
+`Recipient:` header line, adapt the regex to the actual format and record
+the actual format in your report — the recipient gate itself is
+non-negotiable.
+
+- [ ] **Step 3: Add the Caddyfile route**
+
+Inside the `:443` site, after the `@grafana` handle and before the
+`import /etc/caddy/conf.d/*.caddy` line:
+
+```
+	# One-time-code viewer (design doc §2): authed users read the code
+	# Authelia "mailed" to the notify volume; the template shows it only
+	# when Recipient matches X-Auth-Email. The rewrite pins every path to
+	# the template, so the raw notification file is never served.
+	@authcode path /auth-code /auth-code/*
+	handle @authcode {
+		import authed
+		root * /srv/authcode
+		rewrite * /index.html
+		templates
+		file_server
+	}
+```
+
+- [ ] **Step 4: Link it from the portal**
+
+In `landing/index.html`, in the user section's `links` div, between the
+settings link and the sign-out link, add:
+
+```html
+      <a href="/auth-code">{{if $de}}Bestätigungscode abrufen{{else}}Get verification code{{end}}</a>
+```
+
+- [ ] **Step 5: Extend the smoke script**
+
+After the portal-page block and before `echo "SMOKE PASS"`:
+
+```bash
+# Code-viewer page: auth-gated, and no path under it serves the raw
+# notification file (the rewrite pins everything to the template page).
+ac_unauth=$(run_curl "unauthenticated auth-code request" -o /dev/null -w '%{http_code}' \
+  -H 'Accept: text/html' "$BASE/auth-code")
+[[ "$ac_unauth" == "302" ]] || fail "expected 302 for unauthenticated /auth-code, got: $ac_unauth"
+ac_body=$(run_curl "auth-code raw-file probe" -b "$JAR" "$BASE/auth-code/notify/notification.txt")
+grep -q "<title>" <<<"$ac_body" \
+  || fail "/auth-code/notify/notification.txt did not render the viewer page:
+$ac_body"
+echo "ok: auth-code gated and raw file unreachable"
+```
+
+- [ ] **Step 6: Validate**
+
+```bash
+docker compose --env-file .env -f docker/compose.yaml config --quiet
+make up-dev            # recreates authelia + caddy with the new mounts
+./scripts/smoke.sh     # all checks incl. the two new ones
+```
+
+Expected: `SMOKE PASS`. Also fetch `/auth-code` with an authenticated
+session and confirm the "no code pending" state renders (no code requested
+yet).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add authelia/configuration.yml docker/compose.yaml authcode/ caddy/Caddyfile landing/index.html scripts/smoke.sh
+git commit -m "feat: authenticated one-time-code viewer for password self-service"
+```
+
+---
+
+### Task 6: Manual verification (password change + job survival)
 
 **Files:**
 - Modify: `README.md` (append observed behaviour to the "User accounts" section and a new "Session behaviour" note)
@@ -331,12 +490,15 @@ git commit -m "test: smoke asserts portal grid and status probe"
 **Interfaces:**
 - Consumes: running `make up-dev` stack from Tasks 3–4.
 
-This task is manual by nature; the deliverable is the verified behaviour plus its documentation. **Ship-gate from the spec:** if password change demands an elevated-session one-time code, the feature does not ship half-working — stop and evaluate `identity_validation` options first.
+This task is manual by nature; the deliverable is the verified behaviour plus its documentation. **Ship-gate from the spec (revised):** verify with a second dev user that a code requested by user A cannot be redeemed from user B's session. If the cross-user binding does not hold, the feature does not ship — stop and report BLOCKED.
 
-- [ ] **Step 1: Verify the password-change flow**
+- [ ] **Step 1: Verify the password-change flow end-to-end via the code viewer**
 
-In a browser against the dev stack: log in as the dev user (`jane.doe` / dev password from `authelia/users.yml`), open `https://127.0.0.1/auth/settings`, change the password, log out, log back in with the new password. Record: whether a one-time code was demanded (check `docker compose exec authelia cat /data/notification.txt` if so), and whether the change persisted in `users.yml`.
-Expected: change succeeds with only the current password; no OTC involved.
+Against the dev stack, as the dev user (`jane.doe`, password from the local `authelia/users.yml`): log in, open `/auth/settings`, start a password change (this triggers the elevation OTC), open `/auth-code` and confirm the code for jane.doe's email is displayed, enter it, complete the password change, log out, log back in with the new password. Then change the password back so the dev fixture stays valid. Record each step's outcome.
+
+- [ ] **Step 1b: Cross-user binding check (ship-gate)**
+
+Add a second local-only dev user (synthetic name/email, e.g. `max.probe`) to the gitignored `authelia/users.yml` via `make user`; restart authelia. As jane.doe, request an elevation code. Then, in max.probe's session: (a) `/auth-code` must show "no code pending for this account" (recipient mismatch); (b) submitting jane's code to `POST /auth/api/user/session/elevation` must be rejected. If (b) succeeds, STOP — report BLOCKED. Remove the extra user afterwards and restart authelia.
 
 - [ ] **Step 2: Verify job survival across session expiry**
 
@@ -345,7 +507,7 @@ Expected: established connection survives; next request redirects. Record both o
 
 - [ ] **Step 3: Document observations**
 
-Append to README under "User accounts" (adjust to what was actually observed — do not document expected behaviour as observed if it differed):
+Extend the README "User accounts" password-change bullet to describe the verified flow: change starts at `/auth/settings`, a one-time verification code is shown on the portal-linked `/auth-code` page (only to the matching account), codes are single-use and valid 5 minutes. Then append to README under "User accounts" (adjust to what was actually observed — do not document expected behaviour as observed if it differed):
 
 ```markdown
 ### Session behaviour
@@ -365,7 +527,7 @@ git commit -m "docs: verified password-change flow and session-expiry behaviour"
 
 ---
 
-### Task 6: Release prep
+### Task 7: Release prep
 
 **Files:**
 - Modify: `VERSION` (0.2.0 → 0.3.0)
