@@ -84,6 +84,12 @@ recipient-matching variant:
 - The portal's user section links the page ("Get verification code").
 - Codes are single-use and expire in 5 minutes; the file holds only the
   latest notification.
+- **Writable user store (found in live verification):** `users.yml` was
+  bind-mounted `:ro`; a password change then 500s on persist while still
+  mutating Authelia's in-memory store (old password stops working until
+  restart — silently inconsistent). Self-service change requires the
+  mount read-write, plus `authentication_backend.file.watch: true` so
+  operator-side edits (admin resets) are picked up without a restart.
 
 **Ship-gate (replaces the old one):** verify with a second dev user that a
 code requested by user A cannot be redeemed from user B's session

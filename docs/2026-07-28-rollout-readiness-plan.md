@@ -492,6 +492,22 @@ git commit -m "feat: authenticated one-time-code viewer for password self-servic
 
 This task is manual by nature; the deliverable is the verified behaviour plus its documentation. **Ship-gate from the spec (revised):** verify with a second dev user that a code requested by user A cannot be redeemed from user B's session. If the cross-user binding does not hold, the feature does not ship — stop and report BLOCKED.
 
+- [ ] **Step 0: Make the user store writable (found blocking in first verification run)**
+
+`docker/compose.yaml`, authelia service: drop `:ro` from the `users.yml`
+bind mount (a persisted password change writes the new hash back to this
+file; read-only, the write 500s while the in-memory store still mutates —
+silently inconsistent until restart). `authelia/configuration.yml`,
+`authentication_backend.file`: add `watch: true` directly under `path`, so
+operator-side edits (admin resets via `make user`) are re-read without a
+restart. Validate (compose config quiet + authelia validate-config), then
+commit exactly:
+
+```bash
+git add docker/compose.yaml authelia/configuration.yml
+git commit -m "fix: writable users.yml mount + watch for self-service password change"
+```
+
 - [ ] **Step 1: Verify the password-change flow end-to-end via the code viewer**
 
 Against the dev stack, as the dev user (`jane.doe`, password from the local `authelia/users.yml`): log in, open `/auth/settings`, start a password change (this triggers the elevation OTC), open `/auth-code` and confirm the code for jane.doe's email is displayed, enter it, complete the password change, log out, log back in with the new password. Then change the password back so the dev fixture stays valid. Record each step's outcome.
