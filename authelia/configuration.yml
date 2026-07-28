@@ -35,6 +35,12 @@ access_control:
 session:
   name: authelia_session
   same_site: lax
+  # Defaults would be 1h expiration / 5min inactivity — the cause of the
+  # pre-v0.3 frequent-logout complaints. Working-day session, meal-proof
+  # inactivity window, vacation-proof remember-me.
+  expiration: 12h
+  inactivity: 4h
+  remember_me: 2M
   cookies:
     - domain: '{{ env "EDGE_HOST" }}'
       authelia_url: 'https://{{ env "EDGE_HOST" }}/auth'
