@@ -26,7 +26,13 @@
          ever grows a second address on that line. */}}
     {{$reciLine := regexFind "(?mi)^Recipient:.*$" $raw}}
     {{$recipient := regexFind "[\\w.+-]+@[\\w.-]+" $reciLine | lower}}
-    {{if and $email (eq $email $recipient)}}
+    {{/* The recipient gate matches the file's FIRST Recipient line, which is
+         sound only while the file holds a single notification (the notifier
+         overwrites per send). Enforce that assumption: with more than one
+         Recipient line present, render nothing rather than risk showing
+         another account's notification. */}}
+    {{$reciCount := len (regexFindAll "(?mi)^Recipient:" $raw -1)}}
+    {{if and $email (eq $reciCount 1) (eq $email $recipient)}}
       {{$shown = true}}
       <pre>{{$raw | html}}</pre>
       <p class="muted">{{if $de}}Der Code ist 5 Minuten gültig und nur einmal verwendbar.{{else}}The code is valid for 5 minutes and single-use.{{end}}</p>
