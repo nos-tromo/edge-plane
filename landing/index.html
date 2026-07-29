@@ -73,7 +73,6 @@
   <section class="user">
     <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong></span>
     <div class="links">
-      <a href="/auth-code">{{if $de}}Bestätigungscode abrufen{{else}}Get verification code{{end}}</a>
       <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
     </div>
     <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
