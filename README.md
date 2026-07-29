@@ -174,11 +174,12 @@ to a principal, with the upstream reverse proxy named as the intended
 issuer. Nothing issued it in production before edge-plane. The flow:
 
 1. Caddy **unconditionally strips** client-supplied `X-Auth-User`,
-   `X-Auth-Groups`, and `Remote-*` headers on every request, before
-   anything else — the `strip_identity` snippet in `caddy/Caddyfile`.
+   `X-Auth-Groups`, `X-Auth-Name`, and `Remote-*` headers on every
+   request, before anything else — the `strip_identity` snippet in
+   `caddy/Caddyfile`.
 2. `forward_auth` sends the request to Authelia. Unauthenticated →
    redirect to `/auth/`. Authenticated → Authelia returns `Remote-User`
-   (+ `Remote-Email`, `Remote-Groups`).
+   (+ `Remote-Email`, `Remote-Groups`, `Remote-Name`).
 3. Caddy copies `Remote-User` into **`X-Auth-User`** on the proxied
    request — the `authed` snippet's `copy_headers`. The gateway also
    forwards `X-Auth-Email` (from Authelia's `Remote-Email`) for
@@ -190,6 +191,13 @@ issuer. Nothing issued it in production before edge-plane. The flow:
    authorization decisions — e.g. docint grants members of the `admins`
    group visibility into all users' collections. Groups are defined per
    user in `authelia/users.yml`.
+
+   The gateway also forwards **`X-Auth-Name`** (from Authelia's
+   `Remote-Name`, the `displayname` set per user in
+   `authelia/users.yml`) — a decorative display name for UI use only.
+   It is not an identity key: apps must keep keying on `X-Auth-User`.
+   The portal (`landing/index.html`) uses it to greet the signed-in user
+   by name, falling back to `X-Auth-User` when absent.
 
 This is only sound because apps are unreachable except through the
 gateway (production publishes no host ports anywhere else in the

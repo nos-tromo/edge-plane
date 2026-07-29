@@ -76,12 +76,16 @@ workflow mints the annotated `vX.Y.Z` tag on merge to `main`.
 Every request through the gateway follows strip → auth → inject:
 
 1. `strip_identity` snippet (`caddy/Caddyfile`) unconditionally deletes
-   client-supplied `X-Auth-User`, `X-Auth-Email`, and all `Remote-*`
-   headers before any routing.
+   client-supplied `X-Auth-User`, `X-Auth-Email`, `X-Auth-Groups`,
+   `X-Auth-Name`, and all `Remote-*` headers before any routing.
 2. `authed` snippet runs `forward_auth` against `authelia:9091`;
    unauthenticated requests redirect to the `/auth` portal.
 3. On success, `copy_headers` renames Authelia's `Remote-User` →
-   `X-Auth-User` and `Remote-Email` → `X-Auth-Email` for the upstream.
+   `X-Auth-User`, `Remote-Email` → `X-Auth-Email`, `Remote-Groups` →
+   `X-Auth-Groups`, and `Remote-Name` → `X-Auth-Name` for the upstream.
+   `X-Auth-Name` (the `displayname` from `authelia/users.yml`) is
+   decorative — UI display only, e.g. the portal's greeting; apps must
+   keep keying identity on `X-Auth-User`.
 
 `Authorization` passes through untouched — it is not part of the contract
 (upstreams like Open WebUI use it internally). Downstream apps (chorus,

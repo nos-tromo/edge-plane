@@ -71,7 +71,8 @@
       <p>{{if $de}}Wende dich an{{else}}Contact{{end}} {{$support | html}}</p></li>{{end}}
   </ul>
   <section class="user">
-    <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong></span>
+    {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
+    <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
     <div class="links">
       <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
     </div>
