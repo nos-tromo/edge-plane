@@ -103,6 +103,19 @@ https://{$EDGE_HOST}:443 {
 		reverse_proxy grafana:3000
 	}
 
+	# One-time-code viewer (design doc §2): authed users read the code
+	# Authelia "mailed" to the notify volume; the template shows it only
+	# when Recipient matches X-Auth-Email. The rewrite pins every path to
+	# the template, so the raw notification file is never served.
+	@authcode path /auth-code /auth-code/*
+	handle @authcode {
+		import authed
+		root * /srv/authcode
+		rewrite * /index.html
+		templates
+		file_server
+	}
+
 	# Dev-only extra routes land here via the compose override
 	# (production ships only empty.caddy in this directory).
 	import /etc/caddy/conf.d/*.caddy

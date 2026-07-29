@@ -1,33 +1,168 @@
-{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}<!doctype html>
+{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}{{$support := env "EDGE_SUPPORT_CONTACT"}}<!doctype html>
 <html lang="{{if $de}}de{{else}}en{{end}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nos-tromo federation</title>
+<title>Apps</title>
 <style>
-  body { font-family: system-ui, sans-serif; background: #111; color: #eee;
-         display: grid; place-items: center; min-height: 100vh; margin: 0; }
-  main { text-align: center; }
-  ul { list-style: none; padding: 0; }
-  li { margin: .5rem 0; }
-  a { color: #8ab4f8; text-decoration: none; font-size: 1.2rem; }
-  a:hover { text-decoration: underline; }
-  .session { margin-top: 2.5rem; }
-  .session a { font-size: .85rem; color: #888; }
+  :root {
+    --bg: #0b0d10; --surface: #15181d; --border: #262b33;
+    --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
+    --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: var(--bg);
+         color: var(--text); margin: 0; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; }
+  main { width: min(64rem, 100% - 3rem); padding: 3rem 0; }
+  h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 1.5rem; }
+  #app-grid { display: grid; gap: 1rem; padding: 0; margin: 0;
+              list-style: none;
+              grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+  .tile { background: var(--surface); border: 1px solid var(--border);
+          border-radius: .6rem; padding: 1rem 1.1rem; }
+  .tile a.app { color: var(--accent); text-decoration: none;
+                font-size: 1.1rem; font-weight: 600; }
+  .tile a.app:hover { text-decoration: underline; }
+  .tile p { color: var(--muted); font-size: .85rem; margin: .4rem 0 0; }
+  .dot { display: inline-block; width: .55rem; height: .55rem;
+         border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
+  .dot[data-state="online"] { background: var(--ok); }
+  .dot[data-state="offline"] { background: var(--down); }
+  section.user { margin-top: 2.5rem; border-top: 1px solid var(--border);
+                 padding-top: 1.25rem; font-size: .9rem; color: var(--muted); }
+  section.user a { color: var(--accent); text-decoration: none; }
+  section.user a:hover { text-decoration: underline; }
+  section.user .links { margin-top: .5rem; display: flex; gap: 1.25rem;
+                        flex-wrap: wrap; }
+  #pwchange { margin-top: 1rem; }
+  #pwchange summary { color: var(--accent); cursor: pointer; }
+  #pwform { margin-top: .75rem; display: flex; flex-direction: column;
+            gap: .5rem; max-width: 20rem; }
+  #pwform input { background: var(--surface); border: 1px solid var(--border);
+                  border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
+                  font-size: .9rem; }
+  #pwform button { background: var(--surface); border: 1px solid var(--border);
+                    border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
+                    font-size: .9rem; cursor: pointer; align-self: flex-start; }
+  #pwform button:hover { border-color: var(--accent); }
+  #pwmsg { margin: 0; }
+  #pwmsg[data-state="error"] { color: var(--down); }
+  #pwmsg[data-state="ok"] { color: var(--ok); }
 </style>
 </head>
 <body>
 <main>
-  <h1>nos-tromo federation</h1>
-  <ul>
-    <li><a href="/chorus/">chorus</a></li>
-    <li><a href="/docint/">docint</a></li>
-    <li><a href="/nextext/">Nextext</a></li>
-    <li><a href="/translator/">translator</a></li>
-    <li><a href="/webui/">Open WebUI</a></li>
-    <li><a href="/grafana/">Grafana</a></li>
+  <h1>Apps</h1>
+  <ul id="app-grid">
+    <li class="tile"><a class="app" href="/chorus/">chorus</a><span class="dot" data-probe="/chorus/"></span>
+      <p>{{if $de}}Analyse sozialer Netzwerke{{else}}Social-network analysis{{end}}</p></li>
+    <li class="tile"><a class="app" href="/docint/">docint</a><span class="dot" data-probe="/docint/"></span>
+      <p>{{if $de}}Dokumentenanalyse: Import, Suche, Chat{{else}}Document intelligence: ingestion, search, chat{{end}}</p></li>
+    <li class="tile"><a class="app" href="/nextext/">Nextext</a><span class="dot" data-probe="/nextext/"></span>
+      <p>{{if $de}}Transkription und Übersetzung von Audio/Video{{else}}Audio/video transcription and translation{{end}}</p></li>
+    <li class="tile"><a class="app" href="/translator/">translator</a><span class="dot" data-probe="/translator/"></span>
+      <p>{{if $de}}Textübersetzung{{else}}Text translation{{end}}</p></li>
+    <li class="tile"><a class="app" href="/webui/">Open WebUI</a>
+      <p>{{if $de}}Chat mit Sprachmodellen{{else}}Chat with language models{{end}}</p></li>
+    <li class="tile"><a class="app" href="/grafana/">Grafana</a><span class="dot" data-probe="/grafana/"></span>
+      <p>{{if $de}}Monitoring-Dashboards (nur Admins){{else}}Monitoring dashboards (admins only){{end}}</p></li>
+    {{if $support}}<li class="tile"><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
+      <p>{{if $de}}Wende dich an{{else}}Contact{{end}} {{$support | html}}</p></li>{{end}}
   </ul>
-  <p class="session">{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong> &middot; <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a></p>
+  <section class="user">
+    <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong></span>
+    <div class="links">
+      <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
+    </div>
+    <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
+    <details id="pwchange">
+      <summary>{{if $de}}Passwort ändern{{else}}Change password{{end}}</summary>
+      <form id="pwform">
+        <input type="password" name="oldpw" required autocomplete="current-password"
+               placeholder="{{if $de}}Aktuelles Passwort{{else}}Current password{{end}}">
+        <input type="password" name="newpw" required autocomplete="new-password"
+               placeholder="{{if $de}}Neues Passwort{{else}}New password{{end}}">
+        <input type="password" name="newpw2" required autocomplete="new-password"
+               placeholder="{{if $de}}Neues Passwort wiederholen{{else}}Repeat new password{{end}}">
+        <button type="submit">{{if $de}}Ändern{{else}}Change{{end}}</button>
+        <p id="pwmsg" role="status"></p>
+      </form>
+    </details>
+  </section>
 </main>
+<script>
+/* status-probe */
+(function () {
+  if (!localStorage.getItem('infra-ui-theme')) {
+    localStorage.setItem('infra-ui-theme', 'dark');
+  }
+  function probe() {
+    document.querySelectorAll('.dot[data-probe]').forEach(function (dot) {
+      fetch(dot.dataset.probe, { method: 'HEAD', cache: 'no-store', redirect: 'manual' })
+        .then(function (res) {
+          if (res.ok) { dot.dataset.state = 'online'; }
+          else if (res.status === 403) { delete dot.dataset.state; } /* restricted, not down */
+          else if (res.type === 'opaqueredirect') { delete dot.dataset.state; } /* expired session -> /auth, not down */
+          else { dot.dataset.state = 'offline'; }
+        })
+        .catch(function () { dot.dataset.state = 'offline'; });
+    });
+  }
+  probe();
+  setInterval(probe, 60000);
+})();
+
+/* pw-change */
+(function () {
+  var form = document.getElementById('pwform');
+  if (!form) return;
+  var msg = document.getElementById('pwmsg');
+  var de = document.documentElement.lang === 'de';
+  function say(text, isErr) { msg.textContent = text; msg.dataset.state = isErr ? 'error' : 'ok'; }
+  function api(method, path, body) {
+    return fetch(path, {
+      method: method, cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+  function getCode(attempt) {
+    return fetch('/auth-code', { cache: 'no-store' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var m = html.match(/id="otc"[^>]*>([A-Z0-9]+)</);
+        if (m) return m[1];
+        if (attempt >= 5) throw new Error(de ? 'kein Code auffindbar' : 'no code found');
+        return new Promise(function (r) { setTimeout(r, 1000); })
+          .then(function () { return getCode(attempt + 1); });
+      });
+  }
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var oldPw = form.elements.oldpw.value;
+    var newPw = form.elements.newpw.value;
+    if (newPw !== form.elements.newpw2.value) {
+      say(de ? 'Neue Passwörter stimmen nicht überein.' : 'New passwords do not match.', true);
+      return;
+    }
+    say(de ? 'Ändere …' : 'Changing …');
+    api('POST', '/auth/api/user/session/elevation', {})
+      .then(function (r) { if (!r.ok) throw new Error((de ? 'Elevation-Start fehlgeschlagen: HTTP ' : 'elevation start: HTTP ') + r.status); return getCode(0); })
+      .then(function (code) { return api('PUT', '/auth/api/user/session/elevation', { otc: code }); })
+      .then(function (r) {
+        if (!r.ok) throw new Error((de ? 'Elevation-Bestätigung fehlgeschlagen: HTTP ' : 'elevation redeem: HTTP ') + r.status);
+        return api('POST', '/auth/api/change-password', { old_password: oldPw, new_password: newPw });
+      })
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) throw new Error(de ? 'aktuelles Passwort falsch' : 'current password incorrect');
+        if (!r.ok) throw new Error((de ? 'Änderung fehlgeschlagen: HTTP ' : 'change: HTTP ') + r.status);
+        form.reset();
+        say(de ? 'Passwort geändert.' : 'Password changed.');
+      })
+      .catch(function (e) { say((de ? 'Fehlgeschlagen: ' : 'Failed: ') + e.message, true); });
+  });
+})();
+</script>
 </body>
 </html>

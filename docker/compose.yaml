@@ -53,6 +53,9 @@ services:
       # Uniform federation UI-language switch for the landing page (en|de,
       # default en). Intentionally unprefixed — same name in every repo.
       RESPONSE_LANGUAGE: ${RESPONSE_LANGUAGE:-en}
+      # Optional support contact rendered on the portal's "report a problem"
+      # tile (hidden when unset). Never commit a real value.
+      EDGE_SUPPORT_CONTACT: ${EDGE_SUPPORT_CONTACT:-}
     ports:
       - "443:443"
       - "80:80"
@@ -65,6 +68,8 @@ services:
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
       - ../landing:/srv/landing:ro
       - ../certs:/etc/caddy/certs:ro
+      - ../authcode:/srv/authcode:ro
+      - edge-notify:/srv/authcode/notify:ro
       - edge-ca:/data
     networks:
       default:
@@ -96,8 +101,9 @@ services:
       AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET:?set in .env}
     volumes:
       - ../authelia/configuration.yml:/config/configuration.yml:ro
-      - ../authelia/users.yml:/config/users.yml:ro
+      - ../authelia/users.yml:/config/users.yml
       - edge-state:/data
+      - edge-notify:/notify
     networks:
       default:
     expose:
@@ -109,3 +115,6 @@ volumes:
     external: true
   edge-ca:
     external: true
+  # Project-scoped, NOT external — holds only short-lived one-time codes,
+  # not durable identity state.
+  edge-notify:

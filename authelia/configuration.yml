@@ -12,6 +12,15 @@ log:
 authentication_backend:
   file:
     path: /config/users.yml
+    watch: true
+  # Self-service password change via the settings UI (/auth/settings).
+  password_change:
+    disable: false
+  # Reset needs the notifier; ours is the filesystem notifier (airgap), so
+  # the built-in "forgot password" flow would dead-end in a file only
+  # operators read. Resets are admin-mediated instead (README §User accounts).
+  password_reset:
+    disable: true
 
 access_control:
   default_policy: deny
@@ -35,6 +44,12 @@ access_control:
 session:
   name: authelia_session
   same_site: lax
+  # Defaults would be 1h expiration / 5min inactivity — the cause of the
+  # pre-v0.3 frequent-logout complaints. Working-day session, meal-proof
+  # inactivity window, vacation-proof remember-me.
+  expiration: 12h
+  inactivity: 4h
+  remember_me: 2M
   cookies:
     - domain: '{{ env "EDGE_HOST" }}'
       authelia_url: 'https://{{ env "EDGE_HOST" }}/auth'
@@ -46,4 +61,4 @@ storage:
 
 notifier:
   filesystem:
-    filename: /data/notification.txt
+    filename: /notify/notification.txt

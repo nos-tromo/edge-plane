@@ -1,0 +1,60 @@
+{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}<!doctype html>
+<html lang="{{if $de}}de{{else}}en{{end}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if $de}}Bestätigungscode{{else}}Verification code{{end}}</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0b0d10; color: #e6e8eb;
+         display: grid; place-items: center; min-height: 100vh; margin: 0; }
+  main { max-width: 40rem; padding: 2rem; text-align: center; }
+  pre { background: #15181d; border: 1px solid #262b33; border-radius: .6rem;
+        padding: 1rem; text-align: left; white-space: pre-wrap; word-break: break-word; }
+  a { color: #8ab4f8; }
+  p.muted { color: #8b939e; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{if $de}}Bestätigungscode{{else}}Verification code{{end}}</h1>
+  {{$email := .Req.Header.Get "X-Auth-Email" | lower}}
+  {{$shown := false}}
+  {{if fileExists "notify/notification.txt"}}
+    {{$raw := readFile "notify/notification.txt"}}
+    {{/* Assumes the Recipient: line contains exactly one email-shaped token
+         (Authelia mail.Address rendering) — revisit if the notifier format
+         ever grows a second address on that line. */}}
+    {{$reciLine := regexFind "(?mi)^Recipient:.*$" $raw}}
+    {{$recipient := regexFind "[\\w.+-]+@[\\w.-]+" $reciLine | lower}}
+    {{/* The recipient gate matches the file's FIRST Recipient line, which is
+         sound only while the file holds a single notification (the notifier
+         overwrites per send). Enforce that assumption: with more than one
+         Recipient line present, render nothing rather than risk showing
+         another account's notification. */}}
+    {{$reciCount := len (regexFindAll "(?mi)^Recipient:" $raw -1)}}
+    {{if and $email (eq $reciCount 1) (eq $email $recipient)}}
+      {{$shown = true}}
+      {{/* The OTC is an 8-char uppercase alphanumeric token, but the plain
+           \b[A-Z0-9]{8}\b pattern also matches other 8-letter uppercase
+           words in the notifier's boilerplate (e.g. "COMPLETE" in "...TO
+           COMPLETE A REQUESTED ACTION"), live-verified to false-positive
+           before the code itself. The actual code instead sits alone on
+           its own line between two dashed separator lines, so isolate
+           that block first, then pull the code out of it. This depends
+           on the notifier's boilerplate shape (the dashed-separator
+           layout) — re-verify against a live notification if the
+           notifier template or Authelia's built-in template changes. */}}
+      {{$block := regexFind "(?s)-{10,}\\r?\\n\\r?\\n[A-Z0-9]{8}\\r?\\n\\r?\\n-{10,}" $raw}}
+      {{$otc := regexFind "[A-Z0-9]{8}" $block}}
+      {{if $otc}}<p><code id="otc" style="font-size:1.6rem; letter-spacing:.2rem;">{{$otc | html}}</code></p>{{end}}
+      <pre>{{$raw | html}}</pre>
+      <p class="muted">{{if $de}}Der Code ist 5 Minuten gültig und nur einmal verwendbar.{{else}}The code is valid for 5 minutes and single-use.{{end}}</p>
+    {{end}}
+  {{end}}
+  {{if not $shown}}
+    <p>{{if $de}}Für dieses Konto liegt kein Code vor.{{else}}No code is pending for this account.{{end}}</p>
+  {{end}}
+  <p><a href="/">{{if $de}}Zurück zur Übersicht{{else}}Back to overview{{end}}</a></p>
+</main>
+</body>
+</html>

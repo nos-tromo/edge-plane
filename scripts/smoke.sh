@@ -69,9 +69,67 @@ grep -qi "^X-Auth-Groups:.*admins" <<<"$body" && fail "forged X-Auth-Groups reac
 $body"
 echo "ok: X-Auth-User + X-Auth-Groups injected; forged headers stripped"
 
-# Landing page reachable with the session.
-landing=$(run_curl "landing page request" -b "$JAR" -o /dev/null -w '%{http_code}' "$BASE/")
-[[ "$landing" == "200" ]] || fail "landing page returned HTTP $landing"
-echo "ok: landing page"
+# Portal reachable with the session, and actually the portal: the rendered
+# page must contain the app grid and the status-probe script.
+landing_body=$(run_curl "landing page request" -b "$JAR" "$BASE/")
+grep -q 'id="app-grid"' <<<"$landing_body" \
+  || fail "landing page is missing the app grid"
+grep -q 'status-probe' <<<"$landing_body" \
+  || fail "landing page is missing the status probe script"
+echo "ok: portal page (app grid + status probe)"
+
+# Code-viewer page: auth-gated, and no path under it serves the raw
+# notification file (the rewrite pins everything to the template page).
+ac_unauth=$(run_curl "unauthenticated auth-code request" -o /dev/null -w '%{http_code}' \
+  -H 'Accept: text/html' "$BASE/auth-code")
+[[ "$ac_unauth" == "302" ]] || fail "expected 302 for unauthenticated /auth-code, got: $ac_unauth"
+ac_body=$(run_curl "auth-code raw-file probe" -b "$JAR" "$BASE/auth-code/notify/notification.txt")
+grep -q "<title>" <<<"$ac_body" \
+  || fail "/auth-code/notify/notification.txt did not render the viewer page:
+$ac_body"
+grep -qE "<title>(Verification code|Bestätigungscode)</title>" <<<"$ac_body" \
+  || fail "/auth-code/notify/notification.txt did not render the viewer's title:
+$ac_body"
+grep -q "^Date:" <<<"$ac_body" \
+  && fail "/auth-code/notify/notification.txt leaked the raw notification dump:
+$ac_body"
+echo "ok: auth-code gated and raw file unreachable"
+
+# Password self-service API cycle: guards the undocumented endpoints the
+# portal form depends on. Changes to a temp password and back; on a
+# mid-cycle failure the dev user may be left on $TMP_PW (echoed below).
+TMP_PW="smoke-temp-password"
+elev=$(run_curl "elevation start" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/auth/api/user/session/elevation")
+[[ "$elev" == "200" ]] || fail "elevation start returned HTTP $elev"
+otc=""
+for _ in 1 2 3 4 5; do
+  otc=$(run_curl "auth-code fetch" -b "$JAR" "$BASE/auth-code" \
+    | sed -n 's/.*id="otc"[^>]*>\([A-Z0-9]*\)<.*/\1/p')
+  [[ -n "$otc" ]] && break
+  sleep 1
+done
+[[ -n "$otc" ]] || fail "no OTC marker surfaced on /auth-code"
+redeem=$(run_curl "elevation redeem" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X PUT -H 'Content-Type: application/json' -d "{\"otc\":\"$otc\"}" \
+  "$BASE/auth/api/user/session/elevation")
+[[ "$redeem" == "200" ]] || fail "elevation redeem returned HTTP $redeem"
+chg=$(run_curl "password change" -b "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' \
+  -d "{\"old_password\":\"$PASSWORD\",\"new_password\":\"$TMP_PW\"}" \
+  "$BASE/auth/api/change-password")
+[[ "$chg" == "200" ]] || fail "password change returned HTTP $chg"
+JAR2="$(mktemp)"
+relogin=$(run_curl "temp-password login" -c "$JAR2" -o /dev/null -w '%{http_code}' \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$USER_NAME\",\"password\":\"$TMP_PW\"}" "$BASE/auth/api/firstfactor")
+rm -f "$JAR2"
+[[ "$relogin" == "200" ]] || fail "login with temp password failed (HTTP $relogin) — user may be on $TMP_PW"
+chback=$(run_curl "password revert" -b "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' \
+  -d "{\"old_password\":\"$TMP_PW\",\"new_password\":\"$PASSWORD\"}" \
+  "$BASE/auth/api/change-password")
+[[ "$chback" == "200" ]] || fail "password revert returned HTTP $chback — user is on $TMP_PW"
+echo "ok: password self-service API cycle (elevation, change, revert)"
 
 echo "SMOKE PASS"
