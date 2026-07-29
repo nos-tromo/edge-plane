@@ -4,14 +4,38 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{if $de}}Bestätigungscode{{else}}Verification code{{end}}</title>
+<script>
+  /* infra-ui theme: stamp explicit choice before first paint (FOUC guard) */
+  ;(function () {
+    try {
+      var t = localStorage.getItem('infra-ui-theme')
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+    } catch (e) {}
+  })()
+</script>
 <style>
-  body { font-family: system-ui, sans-serif; background: #0b0d10; color: #e6e8eb;
+  /* mirrored from infra-ui theme.css — sync manually until tokens are exported (look-and-feel pass) */
+  :root {
+    --bg: #ffffff; --surface: #f4f4f5; --border: #d4d4d8;
+    --text: #19191c; --muted: #62626b; --accent: hsl(217 91% 45%);
+  }
+  :root[data-theme='dark'] {
+    --bg: #0b0d10; --surface: #15181d; --border: #262b33;
+    --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --bg: #0b0d10; --surface: #15181d; --border: #262b33;
+      --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
+    }
+  }
+  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text);
          display: grid; place-items: center; min-height: 100vh; margin: 0; }
   main { max-width: 40rem; padding: 2rem; text-align: center; }
-  pre { background: #15181d; border: 1px solid #262b33; border-radius: .6rem;
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: .6rem;
         padding: 1rem; text-align: left; white-space: pre-wrap; word-break: break-word; }
-  a { color: #8ab4f8; }
-  p.muted { color: #8b939e; font-size: .9rem; }
+  a { color: var(--accent); }
+  p.muted { color: var(--muted); font-size: .9rem; }
 </style>
 </head>
 <body>
