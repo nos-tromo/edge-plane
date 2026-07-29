@@ -16,15 +16,18 @@
 <style>
   /* mirrored from infra-ui theme.css — sync manually until tokens are exported (look-and-feel pass) */
   :root {
+    color-scheme: light;
     --bg: #ffffff; --surface: #f4f4f5; --border: #d4d4d8;
     --text: #19191c; --muted: #62626b; --accent: hsl(217 91% 45%);
   }
   :root[data-theme='dark'] {
+    color-scheme: dark;
     --bg: #0b0d10; --surface: #15181d; --border: #262b33;
     --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
+      color-scheme: dark;
       --bg: #0b0d10; --surface: #15181d; --border: #262b33;
       --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
     }

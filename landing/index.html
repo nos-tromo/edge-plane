@@ -16,17 +16,20 @@
 <style>
   /* mirrored from infra-ui theme.css — sync manually until tokens are exported (look-and-feel pass) */
   :root {
+    color-scheme: light;
     --bg: #ffffff; --surface: #f4f4f5; --border: #d4d4d8;
     --text: #19191c; --muted: #62626b; --accent: hsl(217 91% 45%);
     --ok: #1f9c53; --down: #c53d36; --neutral: #62626b;
   }
   :root[data-theme='dark'] {
+    color-scheme: dark;
     --bg: #0b0d10; --surface: #15181d; --border: #262b33;
     --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
     --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
+      color-scheme: dark;
       --bg: #0b0d10; --surface: #15181d; --border: #262b33;
       --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
       --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
@@ -99,7 +102,7 @@
     <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{.Req.Header.Get "X-Auth-User" | html}}</strong></span>
     <div class="links">
       <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
-      <button id="theme-toggle" type="button" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}"></button>
+      <button id="theme-toggle" type="button" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}">{{if $de}}Design: System{{else}}Theme: system{{end}}</button>
     </div>
     <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
     <details id="pwchange">
