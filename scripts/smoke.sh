@@ -93,6 +93,18 @@ grep -q 'status-probe' <<<"$landing_body" \
   || fail "landing page is missing the status probe script"
 echo "ok: portal page (app grid + status probe)"
 
+# Vendored design tokens: served without auth (it's just CSS, not
+# sensitive), and reachable at an absolute path from under /auth-code too
+# (that page's handle rewrites every /auth-code/* path to index.html, so
+# this only works because the link is absolute, not relative).
+tokens_code=$(run_curl "unauthenticated tokens.css request" -o /dev/null -w '%{http_code}' \
+  "$BASE/tokens.css")
+[[ "$tokens_code" == "200" ]] || fail "expected 200 for unauthenticated /tokens.css, got: $tokens_code"
+tokens_body=$(run_curl "tokens.css content check" "$BASE/tokens.css")
+grep -q -- "--color-background" <<<"$tokens_body" \
+  || fail "/tokens.css did not serve the expected design tokens"
+echo "ok: vendored tokens.css served unauthenticated"
+
 # Code-viewer page: auth-gated, and no path under it serves the raw
 # notification file (the rewrite pins everything to the template page).
 ac_unauth=$(run_curl "unauthenticated auth-code request" -o /dev/null -w '%{http_code}' \

@@ -302,6 +302,37 @@ version override via env instead. `docker.io/traefik/whoami` (the dev
 header-echo upstream) is never bundled — it has no place in a production
 airgap image set.
 
+## Portal design tokens
+
+The build-free portal pages (`landing/index.html`, `authcode/index.html`)
+link a vendored copy of `@infra/ui`'s plain-CSS design tokens,
+`landing/tokens.css` — the same background/foreground/muted/border/primary/
+danger custom properties the React frontends get via Tailwind, exported as
+plain `:root` rules for consumers with no build step. It's vendored, not
+`@import`ed live, following the same pattern as `scripts/bundle-lib.sh`:
+`landing/tokens.css`'s header comment records the canonical source
+(`nos-tromo/infra-ui`, pinned commit/tag) and the manual re-vendor step; CI
+(`scripts/check-tokens-vendor.sh`) only checks that header is present and
+well-formed, since infra-ui hadn't cut a release tag for this artifact as of
+vendoring — there's no stable ref CI could fetch against.
+
+It's served unauthenticated at the absolute path `/tokens.css` (a dedicated
+Caddyfile matcher, `root * /srv/landing`) rather than a same-origin relative
+link — `authcode`'s handle rewrites every `/auth-code/*` path to
+`index.html`, so a relative link scoped under that prefix would never reach
+a real file.
+
+Each page still keeps a small local `<style>` block, but it now only
+contains: aliases that reference the vendored tokens 1:1
+(`--bg`/`--surface`/`--border`/`--text`/`--muted`/`--neutral` — true
+duplicates of infra-ui's values, no longer hand-copied) plus a handful of
+portal-owned tokens that are genuinely *not* shared with infra-ui:
+`--accent` and `--down` use portal-tuned values distinct from
+`--color-primary`/`--color-danger` (this unprocessed static HTML needs its
+own AA-checked contrast against a plain white/near-black surface), and
+`--ok` (the online-status green) has no infra-ui equivalent at all —
+infra-ui ships no status-color tokens.
+
 ## What is deliberately NOT routed
 
 - **Neo4j Browser, Qdrant dashboard** — operator/admin surfaces, not
@@ -338,12 +369,15 @@ edge-plane/
     configuration.yml          /auth sub-path, file users, SQLite, filesystem notifier
     users.template.yml         synthetic placeholder — copy to users.yml, never commit it
   landing/index.html           unauthenticated-adjacent landing page (still behind forward_auth)
+  landing/tokens.css            vendored infra-ui design tokens, served at /tokens.css
+  authcode/index.html          one-time-code viewer page
   docker/
     compose.yaml               production shape — publishes :443 (+:80) only
     compose.override.yaml      dev overlay — whoami upstream + its route, relaxed conf.d mount
   scripts/
     bundle_images.sh           airgap bundler, sources vendored bundle-lib.sh
     bundle-lib.sh              vendored verbatim from nos-tromo/.github
+    check-tokens-vendor.sh     verifies landing/tokens.css's vendoring header
     smoke.sh                   end-to-end contract test (portal redirect, login, header inject/strip)
   Makefile                     bespoke operator commands (data-plane/obs-plane style)
   VERSION                      one-line semver, read by the release-tag workflow
