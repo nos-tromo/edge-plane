@@ -57,6 +57,10 @@
               list-style: none;
               grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
   h1.section { margin-top: 3rem; }
+  /* Settings tiles size to their own content: grid's default stretch would
+     inflate a collapsed neighbour to match an expanded tile's height. The
+     app grid keeps stretch, where equal-height tiles are the point. */
+  #settings-grid { align-items: start; }
   .tile { background: var(--surface); border: 1px solid var(--border);
           border-radius: .6rem; padding: 1rem 1.1rem; }
   .tile a.app { color: var(--accent); text-decoration: none;
