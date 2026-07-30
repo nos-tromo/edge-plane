@@ -37,7 +37,7 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
-| everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and inline password-change form |
+| everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and inline password-change form; light/dark via the shared `infra-ui-theme` tri-state toggle (OS-preference default) |
 
 **Open WebUI (`https://<EDGE_HOST>:8443/`, separate site block).** The
 upstream image has no base-path support: its SvelteKit frontend bakes

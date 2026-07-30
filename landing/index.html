@@ -4,11 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Apps</title>
+<script>
+  /* infra-ui theme: stamp explicit choice before first paint (FOUC guard) */
+  ;(function () {
+    try {
+      var t = localStorage.getItem('infra-ui-theme')
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+    } catch (e) {}
+  })()
+</script>
 <style>
+  /* mirrored from infra-ui theme.css — sync manually until tokens are exported (look-and-feel pass) */
   :root {
+    color-scheme: light;
+    --bg: #ffffff; --surface: #f4f4f5; --border: #d4d4d8;
+    --text: #19191c; --muted: #62626b; --accent: hsl(217 91% 45%);
+    --ok: #1f9c53; --down: #c53d36; --neutral: #62626b;
+  }
+  :root[data-theme='dark'] {
+    color-scheme: dark;
     --bg: #0b0d10; --surface: #15181d; --border: #262b33;
     --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
     --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      color-scheme: dark;
+      --bg: #0b0d10; --surface: #15181d; --border: #262b33;
+      --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
+      --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
+    }
   }
   * { box-sizing: border-box; }
   body { font-family: system-ui, sans-serif; background: var(--bg);
@@ -33,6 +58,9 @@
                  padding-top: 1.25rem; font-size: .9rem; color: var(--muted); }
   section.user a { color: var(--accent); text-decoration: none; }
   section.user a:hover { text-decoration: underline; }
+  #theme-toggle { background: none; border: none; color: var(--accent);
+                  font: inherit; padding: 0; cursor: pointer; }
+  #theme-toggle:hover { text-decoration: underline; }
   section.user .links { margin-top: .5rem; display: flex; gap: 1.25rem;
                         flex-wrap: wrap; }
   #pwchange { margin-top: 1rem; }
@@ -75,6 +103,7 @@
     <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
     <div class="links">
       <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
+      <button id="theme-toggle" type="button" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}">{{if $de}}Design: System{{else}}Theme: system{{end}}</button>
     </div>
     <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
     <details id="pwchange">
@@ -95,9 +124,6 @@
 <script>
 /* status-probe */
 (function () {
-  if (!localStorage.getItem('infra-ui-theme')) {
-    localStorage.setItem('infra-ui-theme', 'dark');
-  }
   function probe() {
     document.querySelectorAll('.dot[data-probe]').forEach(function (dot) {
       fetch(dot.dataset.probe, { method: 'HEAD', cache: 'no-store', redirect: 'manual' })
@@ -112,6 +138,40 @@
   }
   probe();
   setInterval(probe, 60000);
+})();
+
+/* theme-toggle */
+(function () {
+  var KEY = 'infra-ui-theme';
+  var btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  function current() {
+    try {
+      var t = localStorage.getItem(KEY);
+      return (t === 'light' || t === 'dark') ? t : 'system';
+    } catch (e) { return 'system'; }
+  }
+  function apply(state) {
+    if (state === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.dataset.theme = state;
+    }
+    btn.textContent = btn.dataset['label' + state.charAt(0).toUpperCase() + state.slice(1)];
+  }
+  function set(state) {
+    try {
+      if (state === 'system') { localStorage.removeItem(KEY); }
+      else { localStorage.setItem(KEY, state); }
+    } catch (e) {}
+    apply(state);
+  }
+  var NEXT = { system: 'light', light: 'dark', dark: 'system' };
+  apply(current());
+  btn.addEventListener('click', function () { set(NEXT[current()]); });
+  window.addEventListener('storage', function (ev) {
+    if (ev.key === KEY || ev.key === null) apply(current());
+  });
 })();
 
 /* pw-change */
