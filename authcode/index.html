@@ -40,7 +40,9 @@
       --accent: #8ab4f8;
     }
   }
-  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text);
+  /* --font-sans is the vendored infra-ui token, so this page renders in the
+     same face as the portal and the four SPAs behind it. */
+  body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
          display: grid; place-items: center; min-height: 100vh; margin: 0; }
   main { max-width: 40rem; padding: 2rem; text-align: center; }
   pre { background: var(--surface); border: 1px solid var(--border); border-radius: .6rem;
