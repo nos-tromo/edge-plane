@@ -104,6 +104,9 @@
      no mail service wired up, so a dead link would be worse than plain text. */
   #support .contact { color: var(--text); font-weight: 600; margin: .5rem 0 0;
                       user-select: all; word-break: break-word; }
+  #support .checklist { margin: .35rem 0 0; padding-left: 1.1rem;
+                        color: var(--muted); font-size: .8rem; }
+  #support .checklist li { margin: .15rem 0; }
   #pwchange summary { color: var(--accent); cursor: pointer; }
   #pwform { margin-top: 1rem; display: flex; flex-direction: column;
             gap: .5rem; }
@@ -170,8 +173,16 @@
         <summary><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
           <p>{{if $de}}Hilfe bei Fehlern oder Fragen{{else}}Get help with a problem or question{{end}}</p>
         </summary>
-        <p class="hint">{{if $de}}Es gibt keinen automatischen Ticket-Eingang. Schreibe eine E-Mail mit einer kurzen Beschreibung — was du getan hast, was passiert ist, welche App — an:{{else}}There is no automated ticket inbox. Send an email describing what you did, what happened, and which app, to:{{end}}</p>
+        <p class="hint">{{if $de}}Bitte senden Sie eine E-Mail an:{{else}}Please send an email to:{{end}}</p>
         <p class="contact">{{$support | html}}</p>
+        <p class="hint">{{if $de}}Bitte mit angeben:{{else}}Please include:{{end}}</p>
+        <ul class="checklist">
+          <li>{{if $de}}Datum und Uhrzeit des Fehlers{{else}}Date and time of the error{{end}}</li>
+          <li>{{if $de}}Betroffene App{{else}}Which app{{end}}</li>
+          <li>{{if $de}}Was Sie getan haben und was passiert ist{{else}}What you did, and what happened{{end}}</li>
+          <li>{{if $de}}Fehlermeldung, wörtlich{{else}}Any error message, word for word{{end}}</li>
+        </ul>
+        <p class="hint">{{if $de}}Bitte keine Fallinhalte — die Beschreibung des Problems genügt.{{else}}Please leave out case content — describing the problem is enough.{{end}}</p>
       </details>
     </li>{{end}}
   </ul>
