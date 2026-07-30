@@ -92,12 +92,18 @@
   a.signout:hover { border-color: var(--accent); color: var(--accent); }
   /* The settings tile expands in place; its summary is the tile face, so it
      reads identically to an app tile until opened. */
-  #pwchange > summary { list-style: none; cursor: pointer; }
-  #pwchange > summary::-webkit-details-marker { display: none; }
-  #pwchange > summary .app { color: var(--accent); font-size: 1.1rem; font-weight: 600; }
-  #pwchange[open] > summary .app { text-decoration: underline; }
-  #pwchange > summary p { color: var(--muted); font-size: .85rem; margin: .4rem 0 0; }
-  #pwchange .hint { color: var(--muted); font-size: .8rem; margin: .75rem 0 0; }
+  #settings-grid > li > details > summary { list-style: none; cursor: pointer; }
+  #settings-grid > li > details > summary::-webkit-details-marker { display: none; }
+  #settings-grid > li > details > summary .app { color: var(--accent);
+                  font-size: 1.1rem; font-weight: 600; }
+  #settings-grid > li > details[open] > summary .app { text-decoration: underline; }
+  #settings-grid > li > details > summary p { color: var(--muted);
+                  font-size: .85rem; margin: .4rem 0 0; }
+  #settings-grid .hint { color: var(--muted); font-size: .8rem; margin: 1rem 0 0; }
+  /* The address is the actionable payload — no mailto:, this environment has
+     no mail service wired up, so a dead link would be worse than plain text. */
+  #support .contact { color: var(--text); font-weight: 600; margin: .5rem 0 0;
+                      user-select: all; word-break: break-word; }
   #pwchange summary { color: var(--accent); cursor: pointer; }
   #pwform { margin-top: 1rem; display: flex; flex-direction: column;
             gap: .5rem; }
@@ -138,8 +144,6 @@
       <p>{{if $de}}Allgemeiner Chatbot{{else}}General-purpose chatbot{{end}}</p></li>
     <li class="tile"><a class="app" href="/grafana/">Grafana</a><span class="dot" data-probe="/grafana/"></span>
       <p>{{if $de}}Monitoring und Logs (nur Admins){{else}}Monitoring and logs (admins only){{end}}</p></li>
-    {{if $support}}<li class="tile"><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
-      <p>{{if $de}}Wende dich an{{else}}Contact{{end}} {{$support | html}}</p></li>{{end}}
   </ul>
   <h1 class="section">{{if $de}}Einstellungen{{else}}Settings{{end}}</h1>
   <ul id="settings-grid">
@@ -161,6 +165,15 @@
         <p class="hint">{{if $de}}Passwort vergessen? Wenden Sie sich an den Support.{{else}}Forgot your password? Contact technical support.{{end}}</p>
       </details>
     </li>
+    {{if $support}}<li class="tile">
+      <details id="support">
+        <summary><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
+          <p>{{if $de}}Hilfe bei Fehlern oder Fragen{{else}}Get help with a problem or question{{end}}</p>
+        </summary>
+        <p class="hint">{{if $de}}Es gibt keinen automatischen Ticket-Eingang. Schreibe eine E-Mail mit einer kurzen Beschreibung — was du getan hast, was passiert ist, welche App — an:{{else}}There is no automated ticket inbox. Send an email describing what you did, what happened, and which app, to:{{end}}</p>
+        <p class="contact">{{$support | html}}</p>
+      </details>
+    </li>{{end}}
   </ul>
 </main>
 <script>
