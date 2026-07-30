@@ -53,9 +53,14 @@
          display: flex; flex-direction: column; align-items: center; }
   main { width: min(64rem, 100% - 3rem); padding: 3rem 0; }
   h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 1.5rem; }
-  #app-grid { display: grid; gap: 1rem; padding: 0; margin: 0;
+  #app-grid, #settings-grid { display: grid; gap: 1rem; padding: 0; margin: 0;
               list-style: none;
               grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+  h1.section { margin-top: 3rem; }
+  /* Settings tiles size to their own content: grid's default stretch would
+     inflate a collapsed neighbour to match an expanded tile's height. The
+     app grid keeps stretch, where equal-height tiles are the point. */
+  #settings-grid { align-items: start; }
   .tile { background: var(--surface); border: 1px solid var(--border);
           border-radius: .6rem; padding: 1rem 1.1rem; }
   .tile a.app { color: var(--accent); text-decoration: none;
@@ -66,19 +71,49 @@
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }
   .dot[data-state="offline"] { background: var(--down); }
-  section.user { margin-top: 2.5rem; border-top: 1px solid var(--border);
-                 padding-top: 1.25rem; font-size: .9rem; color: var(--muted); }
-  section.user a { color: var(--accent); text-decoration: none; }
-  section.user a:hover { text-decoration: underline; }
-  #theme-toggle { background: none; border: none; color: var(--accent);
-                  font: inherit; padding: 0; cursor: pointer; }
-  #theme-toggle:hover { text-decoration: underline; }
-  section.user .links { margin-top: .5rem; display: flex; gap: 1.25rem;
-                        flex-wrap: wrap; }
-  #pwchange { margin-top: 1rem; }
+  /* Top bar: mirrors the apps' shared AppHeader geometry (identity left,
+     theme toggle + a distinct sign-out cornered right) so the entry page
+     and everything behind it share one convention. */
+  header.topbar { width: 100%; border-bottom: 1px solid var(--border);
+                  font-size: .9rem; color: var(--muted); }
+  /* Inner column matches main's width so the bar's content lines up with
+     the tile grid instead of running to the viewport edges. */
+  .topbar-inner { width: min(64rem, 100% - 3rem); margin: 0 auto;
+                  display: flex; align-items: center; gap: 1rem;
+                  padding: .75rem 0; }
+  .topbar-inner .spacer { flex: 1; }
+  .topbar-inner .whoami strong { color: var(--text); }
+  /* Same geometry as @infra/ui's AppHeader toggle: 2rem icon square, muted
+     glyph, surface fill on hover. */
+  #theme-toggle { display: inline-flex; align-items: center; justify-content: center;
+                  width: 2rem; height: 2rem; background: none; border: none;
+                  color: var(--muted); font: inherit; font-size: 1rem;
+                  cursor: pointer; border-radius: .5rem; }
+  #theme-toggle:hover { background: var(--surface); color: var(--text); }
+  a.signout { color: var(--text); text-decoration: none; font-weight: 600;
+              border: 1px solid var(--border); border-radius: .4rem;
+              padding: .25rem .7rem; }
+  a.signout:hover { border-color: var(--accent); color: var(--accent); }
+  /* The settings tile expands in place; its summary is the tile face, so it
+     reads identically to an app tile until opened. */
+  #settings-grid > li > details > summary { list-style: none; cursor: pointer; }
+  #settings-grid > li > details > summary::-webkit-details-marker { display: none; }
+  #settings-grid > li > details > summary .app { color: var(--accent);
+                  font-size: 1.1rem; font-weight: 600; }
+  #settings-grid > li > details[open] > summary .app { text-decoration: underline; }
+  #settings-grid > li > details > summary p { color: var(--muted);
+                  font-size: .85rem; margin: .4rem 0 0; }
+  #settings-grid .hint { color: var(--muted); font-size: .8rem; margin: 1rem 0 0; }
+  /* The address is the actionable payload — no mailto:, this environment has
+     no mail service wired up, so a dead link would be worse than plain text. */
+  #support .contact { color: var(--text); font-weight: 600; margin: .5rem 0 0;
+                      user-select: all; word-break: break-word; }
+  #support .checklist { margin: .35rem 0 0; padding-left: 1.1rem;
+                        color: var(--muted); font-size: .8rem; }
+  #support .checklist li { margin: .15rem 0; }
   #pwchange summary { color: var(--accent); cursor: pointer; }
-  #pwform { margin-top: .75rem; display: flex; flex-direction: column;
-            gap: .5rem; max-width: 20rem; }
+  #pwform { margin-top: 1rem; display: flex; flex-direction: column;
+            gap: .5rem; }
   #pwform input { background: var(--surface); border: 1px solid var(--border);
                   border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
                   font-size: .9rem; }
@@ -92,46 +127,69 @@
 </style>
 </head>
 <body>
+<header class="topbar">
+ <div class="topbar-inner">
+  {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
+  <span class="whoami">{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" aria-label="{{if $de}}Design: System{{else}}Theme: system{{end}}" title="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}"><span aria-hidden="true">◐</span></button>
+  <a class="signout" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
+ </div>
+</header>
 <main>
   <h1>Apps</h1>
   <ul id="app-grid">
     <li class="tile"><a class="app" href="/chorus/">chorus</a><span class="dot" data-probe="/chorus/"></span>
-      <p>{{if $de}}Analyse sozialer Netzwerke{{else}}Social-network analysis{{end}}</p></li>
+      <p>{{if $de}}Analyse sozialer Netzwerke{{else}}Social network analysis{{end}}</p></li>
     <li class="tile"><a class="app" href="/docint/">docint</a><span class="dot" data-probe="/docint/"></span>
-      <p>{{if $de}}Dokumentenanalyse: Import, Suche, Chat{{else}}Document intelligence: ingestion, search, chat{{end}}</p></li>
+      <p>{{if $de}}Chatten mit Dokumenten (RAG){{else}}Chat with your documents (RAG){{end}}</p></li>
     <li class="tile"><a class="app" href="/nextext/">Nextext</a><span class="dot" data-probe="/nextext/"></span>
       <p>{{if $de}}Transkription und Übersetzung von Audio/Video{{else}}Audio/video transcription and translation{{end}}</p></li>
     <li class="tile"><a class="app" href="/translator/">translator</a><span class="dot" data-probe="/translator/"></span>
       <p>{{if $de}}Textübersetzung{{else}}Text translation{{end}}</p></li>
     <li class="tile"><a class="app" href="/webui/">Open WebUI</a>
-      <p>{{if $de}}Chat mit Sprachmodellen{{else}}Chat with language models{{end}}</p></li>
+      <p>{{if $de}}Allgemeiner Chatbot{{else}}General-purpose chatbot{{end}}</p></li>
     <li class="tile"><a class="app" href="/grafana/">Grafana</a><span class="dot" data-probe="/grafana/"></span>
-      <p>{{if $de}}Monitoring-Dashboards (nur Admins){{else}}Monitoring dashboards (admins only){{end}}</p></li>
-    {{if $support}}<li class="tile"><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
-      <p>{{if $de}}Wende dich an{{else}}Contact{{end}} {{$support | html}}</p></li>{{end}}
+      <p>{{if $de}}Monitoring und Logs (nur Admins){{else}}Monitoring and logs (admins only){{end}}</p></li>
   </ul>
-  <section class="user">
-    {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
-    <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
-    <div class="links">
-      <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
-      <button id="theme-toggle" type="button" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}">{{if $de}}Design: System{{else}}Theme: system{{end}}</button>
-    </div>
-    <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
-    <details id="pwchange">
-      <summary>{{if $de}}Passwort ändern{{else}}Change password{{end}}</summary>
-      <form id="pwform">
-        <input type="password" name="oldpw" required autocomplete="current-password"
-               placeholder="{{if $de}}Aktuelles Passwort{{else}}Current password{{end}}">
-        <input type="password" name="newpw" required autocomplete="new-password"
-               placeholder="{{if $de}}Neues Passwort{{else}}New password{{end}}">
-        <input type="password" name="newpw2" required autocomplete="new-password"
-               placeholder="{{if $de}}Neues Passwort wiederholen{{else}}Repeat new password{{end}}">
-        <button type="submit">{{if $de}}Ändern{{else}}Change{{end}}</button>
-        <p id="pwmsg" role="status"></p>
-      </form>
-    </details>
-  </section>
+  <h1 class="section">{{if $de}}Einstellungen{{else}}Settings{{end}}</h1>
+  <ul id="settings-grid">
+    <li class="tile">
+      <details id="pwchange">
+        <summary><span class="app">{{if $de}}Passwort ändern{{else}}Change password{{end}}</span>
+          <p>{{if $de}}Eigenes Passwort neu setzen{{else}}Set a new password for your account{{end}}</p>
+        </summary>
+        <form id="pwform">
+          <input type="password" name="oldpw" required autocomplete="current-password"
+                 placeholder="{{if $de}}Aktuelles Passwort{{else}}Current password{{end}}">
+          <input type="password" name="newpw" required autocomplete="new-password"
+                 placeholder="{{if $de}}Neues Passwort{{else}}New password{{end}}">
+          <input type="password" name="newpw2" required autocomplete="new-password"
+                 placeholder="{{if $de}}Neues Passwort wiederholen{{else}}Repeat new password{{end}}">
+          <button type="submit">{{if $de}}Ändern{{else}}Change{{end}}</button>
+          <p id="pwmsg" role="status"></p>
+        </form>
+        <p class="hint">{{if $de}}Passwort vergessen? Wenden Sie sich an den Support.{{else}}Forgot your password? Contact technical support.{{end}}</p>
+      </details>
+    </li>
+    {{if $support}}<li class="tile">
+      <details id="support">
+        <summary><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
+          <p>{{if $de}}Hilfe bei Fehlern oder Fragen{{else}}Get help with a problem or question{{end}}</p>
+        </summary>
+        <p class="hint">{{if $de}}Bitte senden Sie eine E-Mail an:{{else}}Please send an email to:{{end}}</p>
+        <p class="contact">{{$support | html}}</p>
+        <p class="hint">{{if $de}}Bitte mit angeben:{{else}}Please include:{{end}}</p>
+        <ul class="checklist">
+          <li>{{if $de}}Datum und Uhrzeit des Fehlers{{else}}Date and time of the error{{end}}</li>
+          <li>{{if $de}}Betroffene App{{else}}Which app{{end}}</li>
+          <li>{{if $de}}Was Sie getan haben und was passiert ist{{else}}What you did, and what happened{{end}}</li>
+          <li>{{if $de}}Fehlermeldung, wörtlich{{else}}Any error message, word for word{{end}}</li>
+        </ul>
+        <p class="hint">{{if $de}}Bitte keine Fallinhalte — die Beschreibung des Problems genügt.{{else}}Please leave out case content — describing the problem is enough.{{end}}</p>
+      </details>
+    </li>{{end}}
+  </ul>
 </main>
 <script>
 /* status-probe */
@@ -155,6 +213,7 @@
 /* theme-toggle */
 (function () {
   var KEY = 'infra-ui-theme';
+  var ICON = { system: '\u25D0', light: '\u2600', dark: '\u263E' };
   var btn = document.getElementById('theme-toggle');
   if (!btn) return;
   function current() {
@@ -169,7 +228,12 @@
     } else {
       document.documentElement.dataset.theme = state;
     }
-    btn.textContent = btn.dataset['label' + state.charAt(0).toUpperCase() + state.slice(1)];
+    // Icon + accessible name mirror @infra/ui's AppHeader toggle exactly, so
+    // the control looks and reads the same on the portal and inside the apps.
+    var label = btn.dataset['label' + state.charAt(0).toUpperCase() + state.slice(1)];
+    btn.firstElementChild.textContent = ICON[state];
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
   }
   function set(state) {
     try {
