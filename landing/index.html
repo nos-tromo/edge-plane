@@ -32,17 +32,23 @@
     --muted: var(--color-muted-foreground);
     --neutral: var(--color-muted-foreground);
     --accent: hsl(217 91% 45%);
+    /* Hover shift for accent-filled controls. Direction is theme-dependent:
+       darken the light accent, lighten the dark one — a single filter would
+       wash out in one of the two. */
+    --accent-hover: brightness(.92);
     --ok: #1f9c53;
     --down: #c53d36;
   }
   :root[data-theme='dark'] {
     --accent: #8ab4f8;
+    --accent-hover: brightness(1.12);
     --ok: #34c26b;
     --down: #e5534b;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
       --accent: #8ab4f8;
+      --accent-hover: brightness(1.12);
       --ok: #34c26b;
       --down: #e5534b;
     }
@@ -160,10 +166,17 @@
   #pwform input { background: var(--surface); border: 1px solid var(--border);
                   border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
                   font-size: .9rem; }
-  #pwform button { background: var(--surface); border: 1px solid var(--border);
-                    border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
-                    font-size: .9rem; cursor: pointer; align-self: flex-start; }
-  #pwform button:hover { border-color: var(--accent); }
+  /* The dialog's primary action: stretched to the field column above it and
+     accent-filled. Full-width alone was not enough — sharing the fields'
+     border, radius and fill, the submit row read as a fourth password box.
+     --bg as the label colour clears AA on both accents (~6.0:1 white on the
+     light accent, ~8.8:1 near-black on the dark one); weight 500 matches the
+     top bar's sign-out control. */
+  #pwform button { background: var(--accent); border: 1px solid var(--accent);
+                    border-radius: .4rem; color: var(--bg); padding: .5rem .6rem;
+                    font-size: .9rem; font-weight: 500; cursor: pointer;
+                    align-self: stretch; margin-top: .25rem; }
+  #pwform button:hover { filter: var(--accent-hover); }
   #pwmsg { margin: 0; }
   #pwmsg[data-state="error"] { color: var(--down); }
   #pwmsg[data-state="ok"] { color: var(--ok); }
