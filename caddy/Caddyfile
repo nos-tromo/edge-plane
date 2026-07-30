@@ -53,6 +53,19 @@ https://{$EDGE_HOST}:443 {
 	tls {$EDGE_TLS:internal}
 	import strip_identity
 
+	# Vendored infra-ui design tokens (landing/tokens.css — see its header
+	# for provenance): plain design-token CSS, not sensitive, so it's
+	# served without auth. This also has to be a dedicated matcher rather
+	# than a relative link from /auth-code/: that page's handle rewrites
+	# every /auth-code/* path to index.html, so a same-prefix stylesheet
+	# link would never reach a real file. An absolute /tokens.css instead
+	# resolves the same way from both landing and auth-code.
+	@tokens path /tokens.css
+	handle @tokens {
+		root * /srv/landing
+		file_server
+	}
+
 	# Authelia portal + its API, served under /auth (sub-path mode).
 	# Bare /auth included: Authelia's own login redirects target the
 	# slash-less portal URL, which must not fall into the authenticated

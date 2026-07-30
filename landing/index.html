@@ -13,26 +13,38 @@
     } catch (e) {}
   })()
 </script>
+<link rel="stylesheet" href="/tokens.css">
 <style>
-  /* mirrored from infra-ui theme.css — sync manually until tokens are exported (look-and-feel pass) */
+  /* Portal-only aliases layered on the vendored infra-ui tokens
+     (landing/tokens.css, linked above). --bg/--surface/--border/--text/
+     --muted/--neutral are true duplicates of infra-ui's tokens, so they
+     just reference them — no more hand-copied values to drift.
+     --accent and --down intentionally use portal-tuned values instead of
+     --color-primary/--color-danger: this is unprocessed static HTML (no
+     Tailwind), so it needs its own AA-checked contrast against a plain
+     white/near-black surface. --ok (online-status green) has no infra-ui
+     equivalent at all — infra-ui ships no status-color tokens. */
   :root {
-    color-scheme: light;
-    --bg: #ffffff; --surface: #f4f4f5; --border: #d4d4d8;
-    --text: #19191c; --muted: #62626b; --accent: hsl(217 91% 45%);
-    --ok: #1f9c53; --down: #c53d36; --neutral: #62626b;
+    --bg: var(--color-background);
+    --surface: var(--color-muted);
+    --border: var(--color-border);
+    --text: var(--color-foreground);
+    --muted: var(--color-muted-foreground);
+    --neutral: var(--color-muted-foreground);
+    --accent: hsl(217 91% 45%);
+    --ok: #1f9c53;
+    --down: #c53d36;
   }
   :root[data-theme='dark'] {
-    color-scheme: dark;
-    --bg: #0b0d10; --surface: #15181d; --border: #262b33;
-    --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
-    --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
+    --accent: #8ab4f8;
+    --ok: #34c26b;
+    --down: #e5534b;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
-      color-scheme: dark;
-      --bg: #0b0d10; --surface: #15181d; --border: #262b33;
-      --text: #e6e8eb; --muted: #8b939e; --accent: #8ab4f8;
-      --ok: #34c26b; --down: #e5534b; --neutral: #8b939e;
+      --accent: #8ab4f8;
+      --ok: #34c26b;
+      --down: #e5534b;
     }
   }
   * { box-sizing: border-box; }

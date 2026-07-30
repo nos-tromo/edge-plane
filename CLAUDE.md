@@ -64,7 +64,12 @@ docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddy
 
 CI also runs shared infra checks (yamllint, shellcheck, and a drift-check
 of `scripts/bundle-lib.sh` against its canonical copy in
-`nos-tromo/.github` — never hand-edit that file; re-vendor it).
+`nos-tromo/.github` — never hand-edit that file; re-vendor it). The portal
+similarly vendors `landing/tokens.css` from `nos-tromo/infra-ui`
+(`dist/tokens.css`); `scripts/check-tokens-vendor.sh` checks its header
+records a canonical source + pinned ref (no live network fetch — infra-ui
+hasn't tagged a release for this artifact) — never hand-edit that file
+either; re-vendor it per its own header comment.
 
 Releases: bump the one-line `VERSION` file in the PR; the `release-tag`
 workflow mints the annotated `vX.Y.Z` tag on merge to `main`.

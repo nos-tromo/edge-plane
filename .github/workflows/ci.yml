@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: tokens.css vendoring check
+        run: ./scripts/check-tokens-vendor.sh
       - name: docker compose config
         run: |
           cp .env.example .env
