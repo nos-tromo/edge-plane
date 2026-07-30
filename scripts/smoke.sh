@@ -3,13 +3,22 @@
 # Verifies, via the whoami header-echo upstream:
 #   1. unauthenticated browser request -> redirect to the /auth portal
 #   2. first-factor login succeeds
-#   3. authenticated request carries X-Auth-User and X-Auth-Groups upstream
-#   4. client-forged X-Auth-User and X-Auth-Groups headers NEVER reach the upstream
+#   3. authenticated request carries X-Auth-User, X-Auth-Groups, and
+#      X-Auth-Name upstream
+#   4. client-forged X-Auth-User, X-Auth-Groups, and X-Auth-Name headers
+#      NEVER reach the upstream
 set -euo pipefail
 
 BASE="${EDGE_SMOKE_BASE:-https://127.0.0.1}"
 USER_NAME="jane.doe"
 PASSWORD="insecure-dev-password"
+DISPLAY_NAME="Jane Doe"
+# Prefer the live dev users.yml's displayname (falls back to the template
+# convention above if users.yml isn't present or doesn't match).
+if [[ -f authelia/users.yml ]]; then
+  live_name=$(awk '/^  jane\.doe:/{f=1;next} f&&/^  [a-zA-Z]/{f=0} f&&/displayname:/{match($0,/"[^"]*"/); print substr($0,RSTART+1,RLENGTH-2); exit}' authelia/users.yml)
+  [[ -n "$live_name" ]] && DISPLAY_NAME="$live_name"
+fi
 JAR="$(mktemp)"
 trap 'rm -f "$JAR"' EXIT
 CURL=(curl -sk --connect-timeout 5)
@@ -53,21 +62,27 @@ login=$(run_curl "first-factor login" -c "$JAR" -o /dev/null -w '%{http_code}' \
 echo "ok: first-factor login"
 
 # 3+4. Authenticated request WITH forged identity headers: the upstream
-# must see the gateway-injected X-Auth-User/X-Auth-Groups values and
-# must NOT see the forged ones.
+# must see the gateway-injected X-Auth-User/X-Auth-Groups/X-Auth-Name
+# values and must NOT see the forged ones.
 body=$(run_curl "authenticated whoami request" -b "$JAR" \
-  -H 'X-Auth-User: mallory' -H 'X-Auth-Groups: admins' "$BASE/whoami/")
+  -H 'X-Auth-User: mallory' -H 'X-Auth-Groups: admins' \
+  -H 'X-Auth-Name: Mallory Mallet' "$BASE/whoami/")
 grep -qi "^X-Auth-User: $USER_NAME" <<<"$body" \
   || fail "upstream did not receive X-Auth-User=$USER_NAME:
 $body"
 grep -qi "^X-Auth-Groups: users" <<<"$body" \
   || fail "upstream did not receive X-Auth-Groups=users:
 $body"
+grep -qi "^X-Auth-Name: $DISPLAY_NAME" <<<"$body" \
+  || fail "upstream did not receive X-Auth-Name=$DISPLAY_NAME:
+$body"
 grep -qi "mallory" <<<"$body" && fail "forged X-Auth-User reached the upstream:
 $body"
 grep -qi "^X-Auth-Groups:.*admins" <<<"$body" && fail "forged X-Auth-Groups reached the upstream:
 $body"
-echo "ok: X-Auth-User + X-Auth-Groups injected; forged headers stripped"
+grep -qi "Mallory Mallet" <<<"$body" && fail "forged X-Auth-Name reached the upstream:
+$body"
+echo "ok: X-Auth-User + X-Auth-Groups + X-Auth-Name injected; forged headers stripped"
 
 # Portal reachable with the session, and actually the portal: the rendered
 # page must contain the app grid and the status-probe script.
