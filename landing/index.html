@@ -66,16 +66,32 @@
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }
   .dot[data-state="offline"] { background: var(--down); }
-  section.user { margin-top: 2.5rem; border-top: 1px solid var(--border);
-                 padding-top: 1.25rem; font-size: .9rem; color: var(--muted); }
-  section.user a { color: var(--accent); text-decoration: none; }
-  section.user a:hover { text-decoration: underline; }
+  /* Top bar: mirrors the apps' shared AppHeader geometry (identity left,
+     theme toggle + a distinct sign-out cornered right) so the entry page
+     and everything behind it share one convention. */
+  header.topbar { width: 100%; border-bottom: 1px solid var(--border);
+                  font-size: .9rem; color: var(--muted); }
+  /* Inner column matches main's width so the bar's content lines up with
+     the tile grid instead of running to the viewport edges. */
+  .topbar-inner { width: min(64rem, 100% - 3rem); margin: 0 auto;
+                  display: flex; align-items: center; gap: 1rem;
+                  padding: .75rem 0; }
+  .topbar-inner .spacer { flex: 1; }
+  .topbar-inner .whoami strong { color: var(--text); }
   #theme-toggle { background: none; border: none; color: var(--accent);
-                  font: inherit; padding: 0; cursor: pointer; }
-  #theme-toggle:hover { text-decoration: underline; }
-  section.user .links { margin-top: .5rem; display: flex; gap: 1.25rem;
-                        flex-wrap: wrap; }
-  #pwchange { margin-top: 1rem; }
+                  font: inherit; padding: .25rem .5rem; cursor: pointer;
+                  border-radius: .4rem; }
+  #theme-toggle:hover { background: var(--surface); }
+  a.signout { color: var(--text); text-decoration: none; font-weight: 600;
+              border: 1px solid var(--border); border-radius: .4rem;
+              padding: .25rem .7rem; }
+  a.signout:hover { border-color: var(--accent); color: var(--accent); }
+  section.account { margin-top: 4rem; font-size: .9rem; color: var(--muted); }
+  section.account h2 { font-size: .75rem; font-weight: 600; margin: 0 0 .75rem;
+                       text-transform: uppercase; letter-spacing: .08em;
+                       color: var(--muted); }
+  section.account .hint { margin: .75rem 0 0; }
+  #pwchange { margin-top: 0; }
   #pwchange summary { color: var(--accent); cursor: pointer; }
   #pwform { margin-top: .75rem; display: flex; flex-direction: column;
             gap: .5rem; max-width: 20rem; }
@@ -92,6 +108,15 @@
 </style>
 </head>
 <body>
+<header class="topbar">
+ <div class="topbar-inner">
+  {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
+  <span class="whoami">{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}">{{if $de}}Design: System{{else}}Theme: system{{end}}</button>
+  <a class="signout" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
+ </div>
+</header>
 <main>
   <h1>Apps</h1>
   <ul id="app-grid">
@@ -110,14 +135,8 @@
     {{if $support}}<li class="tile"><span class="app">{{if $de}}Problem melden{{else}}Report a problem{{end}}</span>
       <p>{{if $de}}Wende dich an{{else}}Contact{{end}} {{$support | html}}</p></li>{{end}}
   </ul>
-  <section class="user">
-    {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
-    <span>{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
-    <div class="links">
-      <a href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
-      <button id="theme-toggle" type="button" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}">{{if $de}}Design: System{{else}}Theme: system{{end}}</button>
-    </div>
-    <p>{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
+  <section class="account">
+    <h2>{{if $de}}Konto{{else}}Account{{end}}</h2>
     <details id="pwchange">
       <summary>{{if $de}}Passwort ändern{{else}}Change password{{end}}</summary>
       <form id="pwform">
@@ -131,6 +150,7 @@
         <p id="pwmsg" role="status"></p>
       </form>
     </details>
+    <p class="hint">{{if $de}}Passwort vergessen? Wende dich an die Administration.{{else}}Forgot your password? Contact your administrator.{{end}}</p>
   </section>
 </main>
 <script>
