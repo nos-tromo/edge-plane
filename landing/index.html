@@ -32,25 +32,39 @@
     --muted: var(--color-muted-foreground);
     --neutral: var(--color-muted-foreground);
     --accent: hsl(217 91% 45%);
+    /* Hover shift for accent-filled controls. Direction is theme-dependent:
+       darken the light accent, lighten the dark one — a single filter would
+       wash out in one of the two. */
+    --accent-hover: brightness(.92);
     --ok: #1f9c53;
     --down: #c53d36;
   }
   :root[data-theme='dark'] {
     --accent: #8ab4f8;
+    --accent-hover: brightness(1.12);
     --ok: #34c26b;
     --down: #e5534b;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
       --accent: #8ab4f8;
+      --accent-hover: brightness(1.12);
       --ok: #34c26b;
       --down: #e5534b;
     }
   }
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; background: var(--bg);
+  /* --font-sans is the vendored infra-ui token, so the portal renders in the
+     same face as the four SPAs behind it (Inter, system-ui fallback). */
+  body { font-family: var(--font-sans); background: var(--bg);
          color: var(--text); margin: 0; min-height: 100vh;
          display: flex; flex-direction: column; align-items: center; }
+  /* Native form controls take the UA font (Arial in Chrome), not the page's,
+     so without this the password dialog's inputs and submit button render in
+     a different face than the copy around them. Same rule the four SPAs carry
+     in their globals.css. font-family only, not the `font` shorthand — the
+     per-control font-size/weight rules below stay in charge. */
+  input, button, select, textarea, optgroup, option { font-family: inherit; }
   main { width: min(64rem, 100% - 3rem); padding: 3rem 0; }
   h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 1.5rem; }
   #app-grid, #settings-grid { display: grid; gap: 1rem; padding: 0; margin: 0;
@@ -65,12 +79,21 @@
      <details> below simply expand inline, which is why the markup keeps
      them. A modal avoids the grid reflow an inline expansion causes —
      rows below would otherwise shift by the expanded tile's height. */
-  button.tile-open { display: block; width: 100%; text-align: left;
-                     background: none; border: none; padding: 0; font: inherit;
-                     cursor: pointer; }
-  button.tile-open .app { color: var(--accent); font-size: 1.1rem; font-weight: 600; }
-  button.tile-open p { color: var(--muted); font-size: .85rem; margin: .4rem 0 0; }
-  li.tile:has(button.tile-open):hover { border-color: var(--accent); }
+  /* The whole-tile click target, shared by both grids: a settings tile is a
+     JS-built <button> that opens a modal, an app tile a static <a> that
+     navigates. Deliberately element-agnostic so the two are indistinguishable
+     to use — each element's own chrome (button background/border, link
+     underline and colour) is stripped, and the tile carries the affordance. */
+  .tile-open { display: block; width: 100%; text-align: left;
+               background: none; border: none; padding: 0; font: inherit;
+               color: inherit; text-decoration: none; cursor: pointer; }
+  /* The hit area is the tile, not just the text. The control sits inside the
+     tile's padding and is only as tall as its own content, so without this
+     overlay the padding ring is dead and — because the grid stretches tiles
+     to their row's height — so is the gap under a short description. */
+  li.tile:has(.tile-open) { position: relative; }
+  .tile-open::after { content: ''; position: absolute; inset: 0; }
+  li.tile:has(.tile-open):hover { border-color: var(--accent); }
   dialog.tile-dialog { position: relative; font-size: .85rem;
                        background: var(--surface); color: var(--text);
                        border: 1px solid var(--border); border-radius: .6rem;
@@ -86,9 +109,7 @@
   dialog.tile-dialog .close:hover { background: var(--bg); color: var(--text); }
   .tile { background: var(--surface); border: 1px solid var(--border);
           border-radius: .6rem; padding: 1rem 1.1rem; }
-  .tile a.app { color: var(--accent); text-decoration: none;
-                font-size: 1.1rem; font-weight: 600; }
-  .tile a.app:hover { text-decoration: underline; }
+  .tile .app { color: var(--accent); font-size: 1.1rem; font-weight: 600; }
   .tile p { color: var(--muted); font-size: .85rem; margin: .4rem 0 0; }
   .dot { display: inline-block; width: .55rem; height: .55rem;
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
@@ -97,17 +118,25 @@
   /* Top bar: mirrors the apps' shared AppHeader geometry (identity left,
      theme toggle + a distinct sign-out cornered right) so the entry page
      and everything behind it share one convention. */
-  header.topbar { width: 100%; border-bottom: 1px solid var(--border);
-                  font-size: .9rem; color: var(--muted); }
+  /* 3rem === AppHeader's h-12, and box-sizing is border-box (the * rule
+     above), so the 1px border sits inside the 3rem exactly as Tailwind's
+     border-b does — 48px total on both. .875rem === its text-sm. */
+  header.topbar { width: 100%; height: 3rem; border-bottom: 1px solid var(--border);
+                  font-size: .875rem; color: var(--muted); }
   /* Inner column matches main's width so the bar's content lines up with
-     the tile grid instead of running to the viewport edges. */
-  .topbar-inner { width: min(64rem, 100% - 3rem); margin: 0 auto;
-                  display: flex; align-items: center; gap: 1rem;
-                  padding: .75rem 0; }
+     the tile grid instead of running to the viewport edges — the one
+     deliberate departure from AppHeader, which is full-bleed px-4.
+     Full-height + centered rather than padded, so the bar's total height
+     stays pinned to the 3rem above; gap .75rem === AppHeader's gap-3. */
+  .topbar-inner { width: min(64rem, 100% - 3rem); height: 100%; margin: 0 auto;
+                  display: flex; align-items: center; gap: .75rem; }
   .topbar-inner .spacer { flex: 1; }
   .topbar-inner .whoami strong { color: var(--text); }
   /* Same geometry as @infra/ui's AppHeader toggle: 2rem icon square, muted
-     glyph, surface fill on hover. */
+     glyph, surface fill on hover. The explicit 1rem is deliberate and must
+     not be "simplified" to inherit: AppHeader's toggle carries no text-size
+     class, so its glyph inherits the root 16px while the labels around it
+     are 14px. Inheriting here would give a 14px glyph — a mismatch. */
   #theme-toggle { display: inline-flex; align-items: center; justify-content: center;
                   width: 2rem; height: 2rem; background: none; border: none;
                   color: var(--muted); font: inherit; font-size: 1rem;
@@ -144,10 +173,17 @@
   #pwform input { background: var(--surface); border: 1px solid var(--border);
                   border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
                   font-size: .9rem; }
-  #pwform button { background: var(--surface); border: 1px solid var(--border);
-                    border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
-                    font-size: .9rem; cursor: pointer; align-self: flex-start; }
-  #pwform button:hover { border-color: var(--accent); }
+  /* The dialog's primary action: stretched to the field column above it and
+     accent-filled. Full-width alone was not enough — sharing the fields'
+     border, radius and fill, the submit row read as a fourth password box.
+     --bg as the label colour clears AA on both accents (~6.0:1 white on the
+     light accent, ~8.8:1 near-black on the dark one); weight 500 matches the
+     top bar's sign-out control. */
+  #pwform button { background: var(--accent); border: 1px solid var(--accent);
+                    border-radius: .4rem; color: var(--bg); padding: .5rem .6rem;
+                    font-size: .9rem; font-weight: 500; cursor: pointer;
+                    align-self: stretch; margin-top: .25rem; }
+  #pwform button:hover { filter: var(--accent-hover); }
   #pwmsg { margin: 0; }
   #pwmsg[data-state="error"] { color: var(--down); }
   #pwmsg[data-state="ok"] { color: var(--ok); }
@@ -166,18 +202,18 @@
 <main>
   <h1>Apps</h1>
   <ul id="app-grid">
-    <li class="tile"><a class="app" href="/chorus/">chorus</a><span class="dot" data-probe="/chorus/"></span>
-      <p>{{if $de}}Analyse sozialer Netzwerke{{else}}Social network analysis{{end}}</p></li>
-    <li class="tile"><a class="app" href="/docint/">docint</a><span class="dot" data-probe="/docint/"></span>
-      <p>{{if $de}}Chatten mit Dokumenten (RAG){{else}}Chat with your documents (RAG){{end}}</p></li>
-    <li class="tile"><a class="app" href="/nextext/">Nextext</a><span class="dot" data-probe="/nextext/"></span>
-      <p>{{if $de}}Transkription und Übersetzung von Audio/Video{{else}}Audio/video transcription and translation{{end}}</p></li>
-    <li class="tile"><a class="app" href="/translator/">translator</a><span class="dot" data-probe="/translator/"></span>
-      <p>{{if $de}}Textübersetzung{{else}}Text translation{{end}}</p></li>
-    <li class="tile"><a class="app" href="/webui/">Open WebUI</a>
-      <p>{{if $de}}Allgemeiner Chatbot{{else}}General-purpose chatbot{{end}}</p></li>
-    <li class="tile"><a class="app" href="/grafana/">Grafana</a><span class="dot" data-probe="/grafana/"></span>
-      <p>{{if $de}}Monitoring und Logs (nur Admins){{else}}Monitoring and logs (admins only){{end}}</p></li>
+    <li class="tile"><a class="tile-open" href="/chorus/"><span class="app">chorus</span><span class="dot" data-probe="/chorus/"></span>
+      <p>{{if $de}}Analyse sozialer Netzwerke{{else}}Social network analysis{{end}}</p></a></li>
+    <li class="tile"><a class="tile-open" href="/docint/"><span class="app">docint</span><span class="dot" data-probe="/docint/"></span>
+      <p>{{if $de}}Chatten mit Dokumenten (RAG){{else}}Chat with your documents (RAG){{end}}</p></a></li>
+    <li class="tile"><a class="tile-open" href="/nextext/"><span class="app">Nextext</span><span class="dot" data-probe="/nextext/"></span>
+      <p>{{if $de}}Transkription und Übersetzung von Audio/Video{{else}}Audio/video transcription and translation{{end}}</p></a></li>
+    <li class="tile"><a class="tile-open" href="/translator/"><span class="app">translator</span><span class="dot" data-probe="/translator/"></span>
+      <p>{{if $de}}Textübersetzung{{else}}Text translation{{end}}</p></a></li>
+    <li class="tile"><a class="tile-open" href="/webui/"><span class="app">Open WebUI</span>
+      <p>{{if $de}}Allgemeiner Chatbot{{else}}General-purpose chatbot{{end}}</p></a></li>
+    <li class="tile"><a class="tile-open" href="/grafana/"><span class="app">Grafana</span><span class="dot" data-probe="/grafana/"></span>
+      <p>{{if $de}}Monitoring und Logs (nur Admins){{else}}Monitoring and logs (admins only){{end}}</p></a></li>
   </ul>
   <h1 class="section">{{if $de}}Einstellungen{{else}}Settings{{end}}</h1>
   <ul id="settings-grid" data-close-label="{{if $de}}Schließen{{else}}Close{{end}}">
