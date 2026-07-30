@@ -61,6 +61,29 @@
      inflate a collapsed neighbour to match an expanded tile's height. The
      app grid keeps stretch, where equal-height tiles are the point. */
   #settings-grid { align-items: start; }
+  /* Settings tiles open a modal. Progressive enhancement: with JS off the
+     <details> below simply expand inline, which is why the markup keeps
+     them. A modal avoids the grid reflow an inline expansion causes —
+     rows below would otherwise shift by the expanded tile's height. */
+  button.tile-open { display: block; width: 100%; text-align: left;
+                     background: none; border: none; padding: 0; font: inherit;
+                     cursor: pointer; }
+  button.tile-open .app { color: var(--accent); font-size: 1.1rem; font-weight: 600; }
+  button.tile-open p { color: var(--muted); font-size: .85rem; margin: .4rem 0 0; }
+  li.tile:has(button.tile-open):hover { border-color: var(--accent); }
+  dialog.tile-dialog { position: relative; font-size: .85rem;
+                       background: var(--surface); color: var(--text);
+                       border: 1px solid var(--border); border-radius: .6rem;
+                       padding: 1.25rem 1.4rem;
+                       width: min(26rem, calc(100vw - 3rem)); }
+  dialog.tile-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+  dialog.tile-dialog h2 { font-size: 1.1rem; color: var(--accent); margin: 0 0 .25rem; }
+  dialog.tile-dialog .sub { color: var(--muted); font-size: .85rem; margin: 0 0 1rem; }
+  dialog.tile-dialog .close { position: absolute; top: .6rem; right: .7rem;
+                              background: none; border: none; color: var(--muted);
+                              font-size: 1.1rem; line-height: 1; cursor: pointer;
+                              padding: .25rem .4rem; border-radius: .4rem; }
+  dialog.tile-dialog .close:hover { background: var(--bg); color: var(--text); }
   .tile { background: var(--surface); border: 1px solid var(--border);
           border-radius: .6rem; padding: 1rem 1.1rem; }
   .tile a.app { color: var(--accent); text-decoration: none;
@@ -103,14 +126,14 @@
   #settings-grid > li > details[open] > summary .app { text-decoration: underline; }
   #settings-grid > li > details > summary p { color: var(--muted);
                   font-size: .85rem; margin: .4rem 0 0; }
-  #settings-grid .hint { color: var(--muted); font-size: .8rem; margin: 1rem 0 0; }
+  .hint { color: var(--muted); font-size: .8rem; margin: 1rem 0 0; }
   /* The address is the actionable payload — no mailto:, this environment has
      no mail service wired up, so a dead link would be worse than plain text. */
-  #support .contact { color: var(--text); font-weight: 600; margin: .5rem 0 0;
+  .contact { color: var(--text); font-weight: 600; margin: .5rem 0 0;
                       user-select: all; word-break: break-word; }
-  #support .checklist { margin: .35rem 0 0; padding-left: 1.1rem;
+  .checklist { margin: .35rem 0 0; padding-left: 1.1rem;
                         color: var(--muted); font-size: .8rem; }
-  #support .checklist li { margin: .15rem 0; }
+  .checklist li { margin: .15rem 0; }
   #pwchange summary { color: var(--accent); cursor: pointer; }
   #pwform { margin-top: 1rem; display: flex; flex-direction: column;
             gap: .5rem; }
@@ -153,7 +176,7 @@
       <p>{{if $de}}Monitoring und Logs (nur Admins){{else}}Monitoring and logs (admins only){{end}}</p></li>
   </ul>
   <h1 class="section">{{if $de}}Einstellungen{{else}}Settings{{end}}</h1>
-  <ul id="settings-grid">
+  <ul id="settings-grid" data-close-label="{{if $de}}Schließen{{else}}Close{{end}}">
     <li class="tile">
       <details id="pwchange">
         <summary><span class="app">{{if $de}}Passwort ändern{{else}}Change password{{end}}</span>
@@ -208,6 +231,71 @@
   }
   probe();
   setInterval(probe, 60000);
+})();
+
+/* settings-dialogs: upgrade each settings tile from an inline <details> to a
+   modal <dialog>. Inline expansion grows its grid row, so any tile row below
+   shifts down by the expanded height and a gap opens beside it; a modal leaves
+   the grid untouched. Without JS (or without <dialog> support) the markup's
+   <details> still expand in place, so nothing is lost. */
+(function () {
+  var grid = document.getElementById('settings-grid');
+  if (!grid || typeof HTMLDialogElement === 'undefined') return;
+  var closeLabel = grid.dataset.closeLabel || 'Close';
+  Array.prototype.forEach.call(grid.querySelectorAll(':scope > li > details'), function (details) {
+    var li = details.parentElement;
+    var summary = details.querySelector('summary');
+    if (!summary) return;
+    var titleEl = summary.querySelector('.app');
+    var subEl = summary.querySelector('p');
+    var title = titleEl ? titleEl.textContent : '';
+    var sub = subEl ? subEl.textContent : '';
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'tile-dialog';
+    dlg.setAttribute('aria-label', title);
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'close';
+    close.setAttribute('aria-label', closeLabel);
+    close.textContent = '\u2715';
+    dlg.appendChild(close);
+
+    var h = document.createElement('h2');
+    h.textContent = title;
+    dlg.appendChild(h);
+    if (sub) {
+      var p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = sub;
+      dlg.appendChild(p);
+    }
+    // Move (not clone) the body so the password form keeps its submit handler.
+    Array.prototype.slice.call(details.children).forEach(function (child) {
+      if (child !== summary) dlg.appendChild(child);
+    });
+    document.body.appendChild(dlg);
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tile-open';
+    var span = document.createElement('span');
+    span.className = 'app';
+    span.textContent = title;
+    btn.appendChild(span);
+    if (sub) {
+      var bp = document.createElement('p');
+      bp.textContent = sub;
+      btn.appendChild(bp);
+    }
+    li.replaceChild(btn, details);
+
+    btn.addEventListener('click', function () { dlg.showModal(); });
+    close.addEventListener('click', function () { dlg.close(); });
+    // Click on the backdrop (the dialog element itself, outside its content).
+    dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); });
+  });
 })();
 
 /* theme-toggle */
