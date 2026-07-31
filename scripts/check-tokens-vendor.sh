@@ -15,7 +15,7 @@ FILE="landing/tokens.css"
 grep -q "Vendored verbatim from nos-tromo/infra-ui" "$FILE" \
   || { echo "$FILE is missing its vendoring header (canonical source + pinned ref) — never hand-edit it without one" >&2; exit 1; }
 
-grep -qE "commit [0-9a-f]{7,40}" "$FILE" \
-  || { echo "$FILE header is missing a pinned commit SHA (or tag, once infra-ui releases one)" >&2; exit 1; }
+grep -qE "(tag v[0-9]+\.[0-9]+\.[0-9]+|commit [0-9a-f]{7,40})" "$FILE" \
+  || { echo "$FILE header is missing a pinned ref — expected 'tag vX.Y.Z' or 'commit <sha>'" >&2; exit 1; }
 
 echo "ok: $FILE has a well-formed vendoring header"
