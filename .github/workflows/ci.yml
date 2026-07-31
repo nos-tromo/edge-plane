@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: tokens.css vendoring check
         run: ./scripts/check-tokens-vendor.sh
+      - name: portal dimensional-literal check
+        run: ./scripts/check-no-literal-dimensions.sh
       - name: docker compose config
         run: |
           cp .env.example .env
