@@ -45,12 +45,14 @@
   body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
          display: grid; place-items: center; min-height: 100vh; margin: 0; }
   main { max-width: 40rem; padding: 2rem; text-align: center; }
-  pre { background: var(--surface); border: 1px solid var(--border); border-radius: .6rem;
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
         padding: 1rem; text-align: left; white-space: pre-wrap; word-break: break-word; }
   a { color: var(--accent); }
-  /* .875rem is infra-ui's text-sm — the same step the portal's top bar uses.
-     Was .9rem, which sits on no scale step at all. */
-  p.muted { color: var(--muted); font-size: .875rem; }
+  /* Was an inline style= attribute, which a <style>-block-only guard cannot
+     see. letter-spacing stays a literal: it has no token scale. */
+  #otc { font-size: var(--text-2xl); letter-spacing: .2rem; }
+  /* --text-sm, the same step the portal's top bar uses. */
+  p.muted { color: var(--muted); font-size: var(--text-sm); }
 </style>
 </head>
 <body>
@@ -85,7 +87,7 @@
            notifier template or Authelia's built-in template changes. */}}
       {{$block := regexFind "(?s)-{10,}\\r?\\n\\r?\\n[A-Z0-9]{8}\\r?\\n\\r?\\n-{10,}" $raw}}
       {{$otc := regexFind "[A-Z0-9]{8}" $block}}
-      {{if $otc}}<p><code id="otc" style="font-size:1.6rem; letter-spacing:.2rem;">{{$otc | html}}</code></p>{{end}}
+      {{if $otc}}<p><code id="otc">{{$otc | html}}</code></p>{{end}}
       <pre>{{$raw | html}}</pre>
       <p class="muted">{{if $de}}Der Code ist 5 Minuten gültig und nur einmal verwendbar.{{else}}The code is valid for 5 minutes and single-use.{{end}}</p>
     {{end}}
