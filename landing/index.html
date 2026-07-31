@@ -150,15 +150,13 @@
               border: 1px solid var(--border); border-radius: .5rem;
               padding: 0 .75rem; }
   a.signout:hover { border-color: var(--accent); color: var(--accent); }
-  /* The settings tile expands in place; its summary is the tile face, so it
-     reads identically to an app tile until opened. */
+  /* No-JS fallback: the settings tile expands in place, its summary acting as
+     the tile face. Only the bits the fallback needs on top of the shared tile
+     styling live here — .app and p are already covered by `.tile .app` and
+     `.tile p` above, since the summary sits inside li.tile either way. */
   #settings-grid > li > details > summary { list-style: none; cursor: pointer; }
   #settings-grid > li > details > summary::-webkit-details-marker { display: none; }
-  #settings-grid > li > details > summary .app { color: var(--accent);
-                  font-size: 1.1rem; font-weight: 600; }
   #settings-grid > li > details[open] > summary .app { text-decoration: underline; }
-  #settings-grid > li > details > summary p { color: var(--muted);
-                  font-size: .85rem; margin: .4rem 0 0; }
   .hint { color: var(--muted); font-size: .8rem; margin: 1rem 0 0; }
   /* The address is the actionable payload — no mailto:, this environment has
      no mail service wired up, so a dead link would be worse than plain text. */
