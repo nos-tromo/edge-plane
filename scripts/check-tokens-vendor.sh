@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Verifies landing/tokens.css still carries the vendoring header this repo
 # requires: a canonical-source line and a pinned commit/tag. Same spirit as
-# the scripts/bundle-lib.sh drift-check, but local instead of a live fetch
-# against nos-tromo/infra-ui — that repo hasn't cut a release tag for this
-# artifact, so there is no stable ref CI could pin a network fetch to.
+# the scripts/bundle-lib.sh drift-check: a local header check rather than a
+# live fetch against nos-tromo/infra-ui, because this repo is airgap-first
+# and CI must not reach the network — not because infra-ui lacks a stable
+# ref. infra-ui now cuts release tags (e.g. v0.8.0) and the header pins to
+# one of those, same as a commit SHA would.
 # Re-vendoring (pulling a fresh copy and updating the pinned ref) is a
-# documented manual step — see landing/tokens.css's own header.
+# documented manual step — see README.md's "Portal design tokens" section
+# and landing/tokens.css's own header.
 set -euo pipefail
 
 FILE="landing/tokens.css"
