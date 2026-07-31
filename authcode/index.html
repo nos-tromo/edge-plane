@@ -48,7 +48,9 @@
   pre { background: var(--surface); border: 1px solid var(--border); border-radius: .6rem;
         padding: 1rem; text-align: left; white-space: pre-wrap; word-break: break-word; }
   a { color: var(--accent); }
-  p.muted { color: var(--muted); font-size: .9rem; }
+  /* .875rem is infra-ui's text-sm — the same step the portal's top bar uses.
+     Was .9rem, which sits on no scale step at all. */
+  p.muted { color: var(--muted); font-size: .875rem; }
 </style>
 </head>
 <body>
