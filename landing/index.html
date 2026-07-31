@@ -54,6 +54,18 @@
     }
   }
   * { box-sizing: border-box; }
+  /* Dimensional values come from @infra/ui's exported scale (tokens.css,
+     linked above) — never hand-typed rem literals, which is what
+     scripts/check-no-literal-dimensions.sh enforces. Roles:
+       --text-xl    section headings (h1)
+       --text-lg    tile titles, dialog headings, dialog close glyph
+       --text-base  theme-toggle glyph (matches AppHeader, which sets none)
+       --text-sm    top bar, tile descriptions, dialog body, form controls
+       --text-xs    hints and checklists
+       --radius-lg  containers: tiles, dialogs, bar controls
+       --radius-md  form controls and the dialog close button
+     Spacing is on the .25rem grid but written as plain rem: --spacing is a
+     multiplier base, so using it would mean calc(var(--spacing) * 4) for 1rem. */
   /* --font-sans is the vendored infra-ui token, so the portal renders in the
      same face as the four SPAs behind it (Inter, system-ui fallback). */
   body { font-family: var(--font-sans); background: var(--bg);
@@ -66,7 +78,7 @@
      per-control font-size/weight rules below stay in charge. */
   input, button, select, textarea, optgroup, option { font-family: inherit; }
   main { width: min(64rem, 100% - 3rem); padding: 3rem 0; }
-  h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 1.5rem; }
+  h1 { font-size: var(--text-xl); font-weight: 600; margin: 0 0 1.5rem; }
   #app-grid, #settings-grid { display: grid; gap: 1rem; padding: 0; margin: 0;
               list-style: none;
               grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
@@ -94,23 +106,23 @@
   li.tile:has(.tile-open) { position: relative; }
   .tile-open::after { content: ''; position: absolute; inset: 0; }
   li.tile:has(.tile-open):hover { border-color: var(--accent); }
-  dialog.tile-dialog { position: relative; font-size: .85rem;
+  dialog.tile-dialog { position: relative; font-size: var(--text-sm);
                        background: var(--surface); color: var(--text);
-                       border: 1px solid var(--border); border-radius: .6rem;
-                       padding: 1.25rem 1.4rem;
+                       border: 1px solid var(--border); border-radius: var(--radius-lg);
+                       padding: 1.25rem 1.5rem;
                        width: min(26rem, calc(100vw - 3rem)); }
   dialog.tile-dialog::backdrop { background: rgba(0, 0, 0, .55); }
-  dialog.tile-dialog h2 { font-size: 1.1rem; color: var(--accent); margin: 0 0 .25rem; }
-  dialog.tile-dialog .sub { color: var(--muted); font-size: .85rem; margin: 0 0 1rem; }
-  dialog.tile-dialog .close { position: absolute; top: .6rem; right: .7rem;
+  dialog.tile-dialog h2 { font-size: var(--text-lg); color: var(--accent); margin: 0 0 .25rem; }
+  dialog.tile-dialog .sub { color: var(--muted); font-size: var(--text-sm); margin: 0 0 1rem; }
+  dialog.tile-dialog .close { position: absolute; top: .5rem; right: .75rem;
                               background: none; border: none; color: var(--muted);
-                              font-size: 1.1rem; line-height: 1; cursor: pointer;
-                              padding: .25rem .4rem; border-radius: .4rem; }
+                              font-size: var(--text-lg); line-height: 1; cursor: pointer;
+                              padding: .25rem .5rem; border-radius: var(--radius-md); }
   dialog.tile-dialog .close:hover { background: var(--bg); color: var(--text); }
   .tile { background: var(--surface); border: 1px solid var(--border);
-          border-radius: .6rem; padding: 1rem 1.1rem; }
-  .tile .app { color: var(--accent); font-size: 1.1rem; font-weight: 600; }
-  .tile p { color: var(--muted); font-size: .85rem; margin: .4rem 0 0; }
+          border-radius: var(--radius-lg); padding: 1rem; }
+  .tile .app { color: var(--accent); font-size: var(--text-lg); font-weight: 600; }
+  .tile p { color: var(--muted); font-size: var(--text-sm); margin: .5rem 0 0; }
   .dot { display: inline-block; width: .55rem; height: .55rem;
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }
@@ -120,9 +132,9 @@
      and everything behind it share one convention. */
   /* 3rem === AppHeader's h-12, and box-sizing is border-box (the * rule
      above), so the 1px border sits inside the 3rem exactly as Tailwind's
-     border-b does — 48px total on both. .875rem === its text-sm. */
+     border-b does — 48px total on both. var(--text-sm) === its text-sm. */
   header.topbar { width: 100%; height: 3rem; border-bottom: 1px solid var(--border);
-                  font-size: .875rem; color: var(--muted); }
+                  font-size: var(--text-sm); color: var(--muted); }
   /* Inner column matches main's width so the bar's content lines up with
      the tile grid instead of running to the viewport edges — the one
      deliberate departure from AppHeader, which is full-bleed px-4.
@@ -133,21 +145,21 @@
   .topbar-inner .spacer { flex: 1; }
   .topbar-inner .whoami strong { color: var(--text); }
   /* Same geometry as @infra/ui's AppHeader toggle: 2rem icon square, muted
-     glyph, surface fill on hover. The explicit 1rem is deliberate and must
-     not be "simplified" to inherit: AppHeader's toggle carries no text-size
-     class, so its glyph inherits the root 16px while the labels around it
-     are 14px. Inheriting here would give a 14px glyph — a mismatch. */
+     glyph, surface fill on hover. The explicit --text-base is deliberate and
+     must not be "simplified" to inherit: AppHeader's toggle carries no
+     text-size class, so its glyph inherits the root 16px while the labels
+     around it are 14px. Inheriting here would give a 14px glyph — a mismatch. */
   #theme-toggle { display: inline-flex; align-items: center; justify-content: center;
                   width: 2rem; height: 2rem; background: none; border: none;
-                  color: var(--muted); font: inherit; font-size: 1rem;
-                  cursor: pointer; border-radius: .5rem; }
+                  color: var(--muted); font: inherit; font-size: var(--text-base);
+                  cursor: pointer; border-radius: var(--radius-lg); }
   #theme-toggle:hover { background: var(--surface); color: var(--text); }
   /* Same 2rem box and radius as the toggle beside it — differing control
      heights read as misalignment. Weight 500, not 600: only the signed-in
      name is bold in this bar. */
   a.signout { display: inline-flex; align-items: center; height: 2rem;
               color: var(--text); text-decoration: none; font-weight: 500;
-              border: 1px solid var(--border); border-radius: .5rem;
+              border: 1px solid var(--border); border-radius: var(--radius-lg);
               padding: 0 .75rem; }
   a.signout:hover { border-color: var(--accent); color: var(--accent); }
   /* No-JS fallback: the settings tile expands in place, its summary acting as
@@ -157,20 +169,20 @@
   #settings-grid > li > details > summary { list-style: none; cursor: pointer; }
   #settings-grid > li > details > summary::-webkit-details-marker { display: none; }
   #settings-grid > li > details[open] > summary .app { text-decoration: underline; }
-  .hint { color: var(--muted); font-size: .8rem; margin: 1rem 0 0; }
+  .hint { color: var(--muted); font-size: var(--text-xs); margin: 1rem 0 0; }
   /* The address is the actionable payload — no mailto:, this environment has
      no mail service wired up, so a dead link would be worse than plain text. */
   .contact { color: var(--text); font-weight: 600; margin: .5rem 0 0;
                       user-select: all; word-break: break-word; }
-  .checklist { margin: .35rem 0 0; padding-left: 1.1rem;
-                        color: var(--muted); font-size: .8rem; }
-  .checklist li { margin: .15rem 0; }
+  .checklist { margin: .25rem 0 0; padding-left: 1rem;
+                        color: var(--muted); font-size: var(--text-xs); }
+  .checklist li { margin: .25rem 0; }
   #pwchange summary { color: var(--accent); cursor: pointer; }
   #pwform { margin-top: 1rem; display: flex; flex-direction: column;
             gap: .5rem; }
   #pwform input { background: var(--surface); border: 1px solid var(--border);
-                  border-radius: .4rem; color: var(--text); padding: .5rem .6rem;
-                  font-size: .9rem; }
+                  border-radius: var(--radius-md); color: var(--text); padding: .5rem;
+                  font-size: var(--text-sm); }
   /* The dialog's primary action: stretched to the field column above it and
      accent-filled. Full-width alone was not enough — sharing the fields'
      border, radius and fill, the submit row read as a fourth password box.
@@ -178,8 +190,8 @@
      light accent, ~8.8:1 near-black on the dark one); weight 500 matches the
      top bar's sign-out control. */
   #pwform button { background: var(--accent); border: 1px solid var(--accent);
-                    border-radius: .4rem; color: var(--bg); padding: .5rem .6rem;
-                    font-size: .9rem; font-weight: 500; cursor: pointer;
+                    border-radius: var(--radius-md); color: var(--bg); padding: .5rem;
+                    font-size: var(--text-sm); font-weight: 500; cursor: pointer;
                     align-self: stretch; margin-top: .25rem; }
   #pwform button:hover { filter: var(--accent-hover); }
   #pwmsg { margin: 0; }
