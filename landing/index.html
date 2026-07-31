@@ -78,7 +78,7 @@
      per-control font-size/weight rules below stay in charge. */
   input, button, select, textarea, optgroup, option { font-family: inherit; }
   main { width: min(64rem, 100% - 3rem); padding: 3rem 0; }
-  h1 { font-size: var(--text-xl); font-weight: 600; margin: 0 0 1.5rem; }
+  h1 { font-size: var(--text-2xl); font-weight: 600; margin: 0 0 1.5rem; }
   #app-grid, #settings-grid { display: grid; gap: 1rem; padding: 0; margin: 0;
               list-style: none;
               grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
@@ -123,6 +123,8 @@
           border-radius: var(--radius-lg); padding: 1rem; }
   .tile .app { color: var(--accent); font-size: var(--text-lg); font-weight: 600; }
   .tile p { color: var(--muted); font-size: var(--text-sm); margin: .5rem 0 0; }
+  /* .55rem: a decorative status-dot diameter, not a spacing value —
+     deliberately off the .25rem grid and not in the design's spacing table. */
   .dot { display: inline-block; width: .55rem; height: .55rem;
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }

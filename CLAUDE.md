@@ -59,6 +59,8 @@ docker compose --env-file .env -f docker/compose.yaml config --quiet            
 docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
   -v "$PWD/caddy/conf.d:/etc/caddy/conf.d:ro" <pinned caddy image> \
   caddy validate --config /etc/caddy/Caddyfile                                  # Caddyfile validation
+./scripts/check-tokens-vendor.sh                                                # landing/tokens.css vendoring header
+./scripts/check-no-literal-dimensions.sh                                        # portal font-size/border-radius must be tokens
 ./scripts/smoke.sh                                                              # after make up-dev
 ```
 
@@ -71,7 +73,12 @@ records a canonical source + pinned ref, either a commit or a release tag
 (no live network fetch — this repo is airgap-first, not because infra-ui
 lacks a stable ref) — never hand-edit that file either; re-vendor it per
 README.md's "Portal design tokens" section and the file's own header
-comment.
+comment. `scripts/check-no-literal-dimensions.sh` guards the other half of
+that vendoring: it fails if either portal page's `font-size`, the `font`
+shorthand, or any `border-radius` (including longhands) resolves to
+anything but one of the vendored `--text-*`/`--radius-*` tokens, a CSS-wide
+keyword, or the `border-radius: 50%` circle exception — see README.md's
+"Portal design tokens" section and the script's own header comment.
 
 Releases: bump the one-line `VERSION` file in the PR; the `release-tag`
 workflow mints the annotated `vX.Y.Z` tag on merge to `main`.
