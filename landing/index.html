@@ -59,7 +59,6 @@
      scripts/check-no-literal-dimensions.sh enforces. Roles:
        --text-xl    section headings (h1)
        --text-lg    tile titles, dialog headings, dialog close glyph
-       --text-base  theme-toggle glyph (matches AppHeader, which sets none)
        --text-sm    top bar, tile descriptions, dialog body, form controls
        --text-xs    hints and checklists
        --radius-lg  containers: tiles, dialogs, bar controls
@@ -147,15 +146,20 @@
   .topbar-inner .spacer { flex: 1; }
   .topbar-inner .whoami strong { color: var(--text); }
   /* Same geometry as @infra/ui's AppHeader toggle: 2rem icon square, muted
-     glyph, surface fill on hover. The explicit --text-base is deliberate and
-     must not be "simplified" to inherit: AppHeader's toggle carries no
-     text-size class, so its glyph inherits the root 16px while the labels
-     around it are 14px. Inheriting here would give a 14px glyph — a mismatch. */
+     icon, surface fill on hover. The icon is an inline SVG at 1rem
+     (AppHeader's h-4 w-4), not a text glyph: glyph size for ◐/☀/☾ depends
+     on the platform's fallback font (roughly half-size in DejaVu Sans on
+     Linux) — the bug infra-ui v0.8.1 fixed, mirrored here. The button
+     carries all three SVGs; data-mode picks which one is visible. */
   #theme-toggle { display: inline-flex; align-items: center; justify-content: center;
                   width: 2rem; height: 2rem; background: none; border: none;
-                  color: var(--muted); font: inherit; font-size: var(--text-base);
+                  color: var(--muted); font: inherit;
                   cursor: pointer; border-radius: var(--radius-lg); }
   #theme-toggle:hover { background: var(--surface); color: var(--text); }
+  #theme-toggle svg { display: none; width: 1rem; height: 1rem; }
+  #theme-toggle[data-mode="system"] .icon-system,
+  #theme-toggle[data-mode="light"] .icon-light,
+  #theme-toggle[data-mode="dark"] .icon-dark { display: block; }
   /* Same 2rem box and radius as the toggle beside it — differing control
      heights read as misalignment. Weight 500, not 600: only the signed-in
      name is bold in this bar. */
@@ -207,7 +211,7 @@
   {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
   <span class="whoami">{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
   <span class="spacer"></span>
-  <button id="theme-toggle" type="button" aria-label="{{if $de}}Design: System{{else}}Theme: system{{end}}" title="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}"><span aria-hidden="true">◐</span></button>
+  <button id="theme-toggle" type="button" aria-label="{{if $de}}Design: System{{else}}Theme: system{{end}}" title="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}" data-mode="system"><svg class="icon-system" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 0 0 12.5Z" fill="currentColor"/></svg><svg class="icon-light" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 .75v2.5M8 12.75v2.5M.75 8h2.5M12.75 8h2.5M2.87 2.87l1.77 1.77M11.36 11.36l1.77 1.77M13.13 2.87l-1.77 1.77M4.64 11.36l-1.77 1.77" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="icon-dark" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.54 9.83A6.25 6.25 0 1 1 6.17 2.46a5 5 0 0 0 7.37 7.37Z" fill="currentColor"/></svg></button>
   <a class="signout" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
  </div>
 </header>
@@ -353,7 +357,6 @@
 /* theme-toggle */
 (function () {
   var KEY = 'infra-ui-theme';
-  var ICON = { system: '\u25D0', light: '\u2600', dark: '\u263E' };
   var btn = document.getElementById('theme-toggle');
   if (!btn) return;
   function current() {
@@ -370,8 +373,9 @@
     }
     // Icon + accessible name mirror @infra/ui's AppHeader toggle exactly, so
     // the control looks and reads the same on the portal and inside the apps.
+    // data-mode drives which of the three inline SVGs the CSS shows.
     var label = btn.dataset['label' + state.charAt(0).toUpperCase() + state.slice(1)];
-    btn.firstElementChild.textContent = ICON[state];
+    btn.dataset.mode = state;
     btn.setAttribute('aria-label', label);
     btn.title = label;
   }
