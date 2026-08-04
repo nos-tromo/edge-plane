@@ -31,6 +31,7 @@
     --text: var(--color-foreground);
     --muted: var(--color-muted-foreground);
     --neutral: var(--color-muted-foreground);
+    --chrome: var(--color-chrome); /* shipped in infra-ui v0.9.1 */
     --accent: hsl(217 91% 45%);
     /* Hover shift for accent-filled controls. Direction is theme-dependent:
        darken the light accent, lighten the dark one — a single filter would
@@ -67,7 +68,7 @@
      multiplier base, so using it would mean calc(var(--spacing) * 4) for 1rem. */
   /* --font-sans is the vendored infra-ui token, so the portal renders in the
      same face as the four SPAs behind it (Inter, system-ui fallback). */
-  body { font-family: var(--font-sans); background: var(--bg);
+  body { font-family: var(--font-sans); background: var(--chrome);
          color: var(--text); margin: 0; min-height: 100vh;
          display: flex; flex-direction: column; align-items: center; }
   /* Native form controls take the UA font (Arial in Chrome), not the page's,
@@ -134,8 +135,7 @@
   /* 3rem === AppHeader's h-12, and box-sizing is border-box (the * rule
      above), so the 1px border sits inside the 3rem exactly as Tailwind's
      border-b does — 48px total on both. var(--text-sm) === its text-sm. */
-  header.topbar { width: 100%; height: 3rem; border-bottom: 1px solid var(--border);
-                  font-size: var(--text-sm); color: var(--muted); }
+  header.topbar { width: 100%; height: 3rem; font-size: var(--text-sm); color: var(--muted); }
   /* Inner column matches main's width so the bar's content lines up with
      the tile grid instead of running to the viewport edges — the one
      deliberate departure from AppHeader, which is full-bleed px-4.
@@ -168,6 +168,12 @@
               border: 1px solid var(--border); border-radius: var(--radius-lg);
               padding: 0 .75rem; }
   a.signout:hover { border-color: var(--accent); color: var(--accent); }
+  /* The work canvas: content sits on the base background inset into the
+     chrome tint, mirroring the apps' AppShell (no sidebar → border-top
+     only, full width, no corner radius — the translator/Nextext shape). */
+  .canvas { width: 100%; flex: 1; background: var(--bg);
+            border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; align-items: center; }
   /* No-JS fallback: the settings tile expands in place, its summary acting as
      the tile face. Only the bits the fallback needs on top of the shared tile
      styling live here — .app and p are already covered by `.tile .app` and
@@ -215,6 +221,7 @@
   <a class="signout" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
  </div>
 </header>
+<div class="canvas">
 <main>
   <h1>Apps</h1>
   <ul id="app-grid">
@@ -270,6 +277,7 @@
     </li>{{end}}
   </ul>
 </main>
+</div>
 <script>
 /* status-probe */
 (function () {
