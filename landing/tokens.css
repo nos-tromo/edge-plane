@@ -1,6 +1,6 @@
 /* Vendored verbatim from nos-tromo/infra-ui, dist/tokens.css.
  *
- * Canonical source: nos-tromo/infra-ui, tag v0.8.0 (commit 3980b156c53233af280331f09e8e46dc18cb9929)
+ * Canonical source: nos-tromo/infra-ui, tag v0.9.1 (commit a67b31d7a9eee9cedc93d04ec628d88cce54a3e9)
  *
  * This repo's CI (scripts/check-tokens-vendor.sh) only verifies this header is
  * present and well-formed — it does not fetch infra-ui over the network in CI,
@@ -27,6 +27,7 @@
   --color-border: hsl(240 5% 84%);
   --color-accent: hsl(240 5% 90%);
   --color-danger: hsl(0 72% 40%);
+  --color-chrome: hsl(240 5% 96%);
   --color-primary: var(--app-accent, hsl(217 91% 60%));
   --color-primary-foreground: hsl(0 0% 100%);
   --font-sans: 'Inter', system-ui, sans-serif;
@@ -51,6 +52,7 @@
   --color-border: hsl(240 4% 22%);
   --color-accent: hsl(240 5% 26%);
   --color-danger: hsl(0 72% 65%);
+  --color-chrome: hsl(240 4% 12%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -63,5 +65,6 @@
     --color-border: hsl(240 4% 22%);
     --color-accent: hsl(240 5% 26%);
     --color-danger: hsl(0 72% 65%);
+    --color-chrome: hsl(240 4% 12%);
   }
 }

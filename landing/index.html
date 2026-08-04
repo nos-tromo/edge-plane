@@ -31,6 +31,7 @@
     --text: var(--color-foreground);
     --muted: var(--color-muted-foreground);
     --neutral: var(--color-muted-foreground);
+    --chrome: var(--color-chrome); /* shipped in infra-ui v0.9.1 */
     --accent: hsl(217 91% 45%);
     /* Hover shift for accent-filled controls. Direction is theme-dependent:
        darken the light accent, lighten the dark one — a single filter would
@@ -67,7 +68,7 @@
      multiplier base, so using it would mean calc(var(--spacing) * 4) for 1rem. */
   /* --font-sans is the vendored infra-ui token, so the portal renders in the
      same face as the four SPAs behind it (Inter, system-ui fallback). */
-  body { font-family: var(--font-sans); background: var(--bg);
+  body { font-family: var(--font-sans); background: var(--chrome);
          color: var(--text); margin: 0; min-height: 100vh;
          display: flex; flex-direction: column; align-items: center; }
   /* Native form controls take the UA font (Arial in Chrome), not the page's,
@@ -128,14 +129,12 @@
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }
   .dot[data-state="offline"] { background: var(--down); }
-  /* Top bar: mirrors the apps' shared AppHeader geometry (identity left,
-     theme toggle + a distinct sign-out cornered right) so the entry page
-     and everything behind it share one convention. */
-  /* 3rem === AppHeader's h-12, and box-sizing is border-box (the * rule
-     above), so the 1px border sits inside the 3rem exactly as Tailwind's
-     border-b does — 48px total on both. var(--text-sm) === its text-sm. */
-  header.topbar { width: 100%; height: 3rem; border-bottom: 1px solid var(--border);
-                  font-size: var(--text-sm); color: var(--muted); }
+  /* Top bar: mirrors the apps' shared AppHeader geometry (identity/user
+     menu + theme toggle on the right) so the entry page and everything
+     behind it share one convention. */
+  /* 3rem === AppHeader's h-12. The chrome is borderless; the canvas's
+     border-top provides the separation. var(--text-sm) === its text-sm. */
+  header.topbar { width: 100%; height: 3rem; font-size: var(--text-sm); color: var(--muted); }
   /* Inner column matches main's width so the bar's content lines up with
      the tile grid instead of running to the viewport edges — the one
      deliberate departure from AppHeader, which is full-bleed px-4.
@@ -144,7 +143,6 @@
   .topbar-inner { width: min(64rem, 100% - 3rem); height: 100%; margin: 0 auto;
                   display: flex; align-items: center; gap: .75rem; }
   .topbar-inner .spacer { flex: 1; }
-  .topbar-inner .whoami strong { color: var(--text); }
   /* Same geometry as @infra/ui's AppHeader toggle: 2rem icon square, muted
      icon, surface fill on hover. The icon is an inline SVG at 1rem
      (AppHeader's h-4 w-4), not a text glyph: glyph size for ◐/☀/☾ depends
@@ -168,6 +166,30 @@
               border: 1px solid var(--border); border-radius: var(--radius-lg);
               padding: 0 .75rem; }
   a.signout:hover { border-color: var(--accent); color: var(--accent); }
+  /* User menu: the apps' `name ▾` pattern (UserMenu). Button geometry
+     matches the sign-out control it replaces (2rem, radius-lg); the
+     panel reuses the tile-dialog surface language. */
+  .user-menu-root { position: relative; }
+  #user-menu { display: inline-flex; align-items: center; gap: .375rem;
+               height: 2rem; padding: 0 .75rem; cursor: pointer;
+               background: none; font: inherit; color: var(--muted);
+               border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  #user-menu:hover, #user-menu[aria-expanded="true"] { border-color: var(--accent); color: var(--text); }
+  #user-menu .caret { font-size: var(--text-xs); }
+  #user-menu-panel { position: absolute; right: 0; top: calc(100% + .25rem);
+                     min-width: 10rem; z-index: 30; padding: .25rem;
+                     background: var(--surface); border: 1px solid var(--border);
+                     border-radius: var(--radius-lg); }
+  #user-menu-panel a { display: block; padding: .375rem .75rem;
+                       color: var(--text); text-decoration: none;
+                       font-size: var(--text-sm); border-radius: var(--radius-md); }
+  #user-menu-panel a:hover { background: var(--bg); }
+  /* The work canvas: content sits on the base background inset into the
+     chrome tint, mirroring the apps' AppShell (no sidebar → border-top
+     only, full width, no corner radius — the translator/Nextext shape). */
+  .canvas { width: 100%; flex: 1; background: var(--bg);
+            border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; align-items: center; }
   /* No-JS fallback: the settings tile expands in place, its summary acting as
      the tile face. Only the bits the fallback needs on top of the shared tile
      styling live here — .app and p are already covered by `.tile .app` and
@@ -209,12 +231,21 @@
 <header class="topbar">
  <div class="topbar-inner">
   {{$name := .Req.Header.Get "X-Auth-Name"}}{{if not $name}}{{$name = .Req.Header.Get "X-Auth-User"}}{{end}}
-  <span class="whoami">{{if $de}}Angemeldet als{{else}}Signed in as{{end}} <strong>{{$name | html}}</strong></span>
   <span class="spacer"></span>
   <button id="theme-toggle" type="button" aria-label="{{if $de}}Design: System{{else}}Theme: system{{end}}" title="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}" data-mode="system"><svg class="icon-system" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 0 0 12.5Z" fill="currentColor"/></svg><svg class="icon-light" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 .75v2.5M8 12.75v2.5M.75 8h2.5M12.75 8h2.5M2.87 2.87l1.77 1.77M11.36 11.36l1.77 1.77M13.13 2.87l-1.77 1.77M4.64 11.36l-1.77 1.77" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="icon-dark" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.54 9.83A6.25 6.25 0 1 1 6.17 2.46a5 5 0 0 0 7.37 7.37Z" fill="currentColor"/></svg></button>
-  <a class="signout" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
+  <div class="user-menu-root">
+    <button id="user-menu" type="button" aria-haspopup="menu" aria-expanded="false"
+            aria-label="{{if $de}}Konto: {{$name | html}}{{else}}Account: {{$name | html}}{{end}}">
+      {{$name | html}}<span class="caret" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="user-menu-panel" role="menu" hidden>
+      <a role="menuitem" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a>
+    </div>
+    <noscript><a class="signout" href="/auth/logout">{{if $de}}Abmelden{{else}}Sign out{{end}}</a></noscript>
+  </div>
  </div>
 </header>
+<div class="canvas">
 <main>
   <h1>Apps</h1>
   <ul id="app-grid">
@@ -270,6 +301,7 @@
     </li>{{end}}
   </ul>
 </main>
+</div>
 <script>
 /* status-probe */
 (function () {
@@ -391,6 +423,25 @@
   btn.addEventListener('click', function () { set(NEXT[current()]); });
   window.addEventListener('storage', function (ev) {
     if (ev.key === KEY || ev.key === null) apply(current());
+  });
+})();
+
+/* user-menu: the apps' name ▾ dropdown. Escape and outside-click close;
+   aria-expanded tracks state. The noscript sign-out link covers JS-off. */
+(function () {
+  var btn = document.getElementById('user-menu');
+  var panel = document.getElementById('user-menu-panel');
+  if (!btn || !panel) return;
+  function setOpen(open) {
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  }
+  btn.addEventListener('click', function () { setOpen(panel.hidden); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') setOpen(false);
+  });
+  document.addEventListener('mousedown', function (ev) {
+    if (!btn.parentElement.contains(ev.target)) setOpen(false);
   });
 })();
 
