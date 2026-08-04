@@ -129,12 +129,11 @@
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }
   .dot[data-state="offline"] { background: var(--down); }
-  /* Top bar: mirrors the apps' shared AppHeader geometry (identity left,
-     theme toggle + a distinct sign-out cornered right) so the entry page
-     and everything behind it share one convention. */
-  /* 3rem === AppHeader's h-12, and box-sizing is border-box (the * rule
-     above), so the 1px border sits inside the 3rem exactly as Tailwind's
-     border-b does — 48px total on both. var(--text-sm) === its text-sm. */
+  /* Top bar: mirrors the apps' shared AppHeader geometry (identity/user
+     menu + theme toggle on the right) so the entry page and everything
+     behind it share one convention. */
+  /* 3rem === AppHeader's h-12. The chrome is borderless; the canvas's
+     border-top provides the separation. var(--text-sm) === its text-sm. */
   header.topbar { width: 100%; height: 3rem; font-size: var(--text-sm); color: var(--muted); }
   /* Inner column matches main's width so the bar's content lines up with
      the tile grid instead of running to the viewport edges — the one
