@@ -65,5 +65,6 @@
     --color-border: hsl(240 4% 22%);
     --color-accent: hsl(240 5% 26%);
     --color-danger: hsl(0 72% 65%);
+    --color-chrome: hsl(240 4% 12%);
   }
 }
