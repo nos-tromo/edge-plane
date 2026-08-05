@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # No `docker` ecosystem block — edge-plane is pull-only (Caddy and Authelia
+  # are digest-pinned images referenced by compose). It has no Dockerfiles for
+  # dependabot to update, and the ecosystem fails the run when it finds
+  # nothing.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
