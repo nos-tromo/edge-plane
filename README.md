@@ -28,10 +28,10 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 
 | Path | Upstream (`edge-net` alias) | Auth | Notes |
 |---|---|---|---|
-| `/chorus/*` | `chorus-frontend:80` | forward_auth | SPA serves from the sub-path |
-| `/docint/*` | `docint-frontend:80` | forward_auth | same |
-| `/nextext/*` | `nextext-frontend:80` | forward_auth | same |
-| `/translator/*` | `translator-frontend:80` | forward_auth | app ignores `X-Auth-User` (stateless) |
+| `/chorus/*` | `chorus-frontend:8080` | forward_auth | SPA serves from the sub-path |
+| `/docint/*` | `docint-frontend:8080` | forward_auth | same |
+| `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
+| `/translator/*` | `translator-frontend:8080` | forward_auth | app ignores `X-Auth-User` (stateless) |
 | `/webui/*` | — | forward_auth | redirects to the dedicated `:8443` site (below) — Open WebUI has no sub-path support |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy` |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
@@ -54,6 +54,20 @@ including the risk analysis for SPA sub-path serving and the Grafana
 access-model change from obs-plane's tunnel-only v1 decision (note: that
 doc's Open WebUI sub-path assumption did not hold — this README is
 authoritative).
+
+## Container hardening (deploy ADR 0001)
+
+Both services run with `no-new-privileges` and `cap_drop: ALL` (the
+`x-hardened` compose anchor). Caddy additionally runs with a read-only root
+filesystem — writable state is limited to `edge-ca:/data`, a `/config` tmpfs
+(config autosave) and `/tmp` — and re-adds only `NET_BIND_SERVICE` for the
+:443/:80/:8443 binds. Authelia keeps its image default user and a writable
+rootfs deliberately: it writes the bind-mounted `authelia/users.yml`
+(password self-service) and its SQLite store on `edge-state`; revisit if
+those move. The four app-frontend upstreams are **:8080** — the apps'
+hardened images serve on 8080 (`nginx-unprivileged`), so an edge-plane
+release before/after the app releases must land in the same deployment
+window or those routes 502.
 
 ## UI language
 
