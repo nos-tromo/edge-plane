@@ -34,6 +34,18 @@ x-logging: &default-logging
     max-file: "5"
     compress: "true"
 
+##########################################################
+# Shared hardening (deploy ADR 0001) — no privilege
+# escalation, all capabilities dropped. Caddy re-adds
+# NET_BIND_SERVICE below (it binds :443/:80/:8443 in the
+# container).
+##########################################################
+x-hardened: &hardened
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
 networks:
   default:
   edge-net:
@@ -42,8 +54,17 @@ networks:
 
 services:
   caddy:
+    <<: *hardened
     image: docker.io/library/caddy:2.11.4@sha256:844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9
     logging: *default-logging
+    cap_add:
+      - NET_BIND_SERVICE
+    # Caddy writes only its CA/cert state (edge-ca:/data), the config
+    # autosave (/config) and scratch under /tmp.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+      - /config:size=16m
     environment:
       <<: *no-proxy-env
       EDGE_HOST: ${EDGE_HOST:?EDGE_HOST must be set in .env}
@@ -90,8 +111,18 @@ services:
     restart: unless-stopped
 
   authelia:
+    # NNP + cap_drop only: Authelia writes the bind-mounted users.yml
+    # (password self-service) and its SQLite on edge-state as the image's
+    # default user, so read_only/user: stay deferred (deploy ADR 0001).
+    <<: *hardened
     image: docker.io/authelia/authelia:4.39.20@sha256:1b363e9279e742397966333f364e0876ae02bf5c876de73e83af6d48c57ff51b
     logging: *default-logging
+    # The image's entrypoint chowns its config and drops to the internal
+    # user via su-exec — exactly these three caps, nothing more.
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     environment:
       <<: *no-proxy-env
       EDGE_HOST: ${EDGE_HOST:?EDGE_HOST must be set in .env}
