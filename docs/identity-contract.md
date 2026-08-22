@@ -15,9 +15,9 @@ to a principal, with the upstream reverse proxy named as the intended
 issuer. Nothing issued it in production before edge-plane. The flow:
 
 1. Caddy **unconditionally strips** client-supplied `X-Auth-User`,
-   `X-Auth-Groups`, `X-Auth-Name`, and `Remote-*` headers on every
-   request, before anything else — the `strip_identity` snippet in
-   `caddy/Caddyfile`.
+   `X-Auth-Email`, `X-Auth-Groups`, `X-Auth-Name`, and `Remote-*` headers
+   on every request, before anything else — the `strip_identity` snippet
+   in `caddy/Caddyfile`.
 2. `forward_auth` sends the request to Authelia. Unauthenticated →
    redirect to `/auth/`. Authenticated → Authelia returns `Remote-User`
    (+ `Remote-Email`, `Remote-Groups`, `Remote-Name`).
