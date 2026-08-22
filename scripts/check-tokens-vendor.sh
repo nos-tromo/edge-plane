@@ -7,8 +7,8 @@
 # ref. infra-ui now cuts release tags (e.g. v0.8.0) and the header pins to
 # one of those, same as a commit SHA would.
 # Re-vendoring (pulling a fresh copy and updating the pinned ref) is a
-# documented manual step — see README.md's "Portal design tokens" section
-# and landing/tokens.css's own header.
+# documented manual step — see docs/portal-tokens.md's "Re-vendoring"
+# section and landing/tokens.css's own header.
 set -euo pipefail
 
 FILE="landing/tokens.css"
