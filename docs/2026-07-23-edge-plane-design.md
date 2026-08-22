@@ -1,5 +1,9 @@
 # edge-plane — federation edge gateway (design)
 
+> **Partly superseded.** Where this doc and the shipped gateway differ — notably
+> the Routing map's `:80` upstreams and its `/webui/` route — the current sources are
+> [`../README.md`](../README.md) § Routing and [`identity-contract.md`](identity-contract.md).
+
 Status: approved design, pre-implementation
 Date: 2026-07-23
 Scope: new federation member `edge-plane` + the integration contract the
