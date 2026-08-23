@@ -13,11 +13,16 @@ Two services:
 
 | Service | Role | Network membership |
 |---|---|---|
-| `caddy` | TLS termination (`:443`, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` only |
+| `caddy` | TLS termination (`:443` + the `:8443` Open WebUI site, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` **and** the project-internal `default` network |
 | `authelia` | Identity provider: file-backed users, SQLite state (sessions/TOTP/preferences), filesystem notifier | project-internal (default) network only, reached by Caddy via `forward_auth` |
 
-`caddy` joins **only** `edge-net` — never `inference-net` or `data-net` —
-so the gateway itself can never reach a backend or a database directly.
+`caddy` joins `edge-net` and the project-internal `default` network —
+never `inference-net` or `data-net` — so the gateway itself can never
+reach a backend or a database directly. The `default` membership is
+load-bearing, not incidental: it is the only place `forward_auth
+authelia:9091` resolves, because Authelia joins that network alone and is
+never reachable from `edge-net`.
+
 All application traffic flows through each app's own frontend nginx,
 reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`).
