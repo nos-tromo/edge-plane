@@ -159,6 +159,10 @@ These were all hit in anger; don't "simplify" them away:
 - Two external volumes: `edge-state` (Authelia's encrypted SQLite —
   TOTP secrets, sessions) and `edge-ca` (Caddy's internal CA + private
   key). `docker compose down -v` can't destroy them; only `make nuke`.
+  A third, `edge-notify`, is deliberately project-scoped rather than
+  external: it carries Authelia's filesystem notifications (the one-time
+  codes the `/auth-code` viewer renders), which are short-lived, not
+  durable identity state.
 - Access control lives in `authelia/configuration.yml`: `default_policy:
   deny`, with a domain-wide catch-all rule granting `one_factor` — so in
   practice every provisioned account reaches every routed app. The
