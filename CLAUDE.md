@@ -20,11 +20,20 @@ path routing, `forward_auth`, identity-header injection; dedicated
 state, filesystem notifier — airgap-clean, no SMTP/egress). These are the
 only published host ports in the whole production federation.
 
-`README.md` is the authoritative operator runbook (routing table, TLS/CA
-runbook, secrets provisioning, `EDGE_HOST` rules). Design rationale:
+`README.md` is the entry point — what the gateway is, the routing table,
+and a quickstart. The operator runbooks live in `docs/`, indexed by
+`docs/README.md`: `docs/configuration.md` (every env var),
+`docs/user-accounts.md` (provisioning, first-start secrets, sessions),
+`docs/tls-runbook.md` (cert sources, client trust, `EDGE_HOST` rules),
+`docs/identity-contract.md` (the trusted-header contract and the
+admins-group `/grafana` gate), `docs/portal-tokens.md` (the vendored
+design tokens and their CI checks). Architecture decisions:
+`docs/decisions/`. Design rationale:
 `docs/2026-07-23-edge-plane-design.md` (note: its Open WebUI sub-path
-assumption did not hold — the README wins). Pinned image references:
-`docs/images.md` — the source of truth CI and compose must match.
+assumption did not hold — see
+`docs/decisions/0002-open-webui-dedicated-port.md`). Pinned image
+references: `docs/images.md` — the source of truth CI and compose must
+match.
 
 ## Commands
 
@@ -49,7 +58,8 @@ make nuke           # DESTROYS edge-state + edge-ca volumes — interactive; new
 ```
 
 First-time setup: `cp .env.example .env` (set `EDGE_HOST`, real secrets —
-storage encryption key must be right **before first up**, see README),
+storage encryption key must be right **before first up**, see
+`docs/user-accounts.md`),
 `cp authelia/users.template.yml authelia/users.yml`, `make user`.
 
 Local CI equivalents (what `.github/workflows/ci.yml` runs):
@@ -72,13 +82,14 @@ similarly vendors `landing/tokens.css` from `nos-tromo/infra-ui`
 records a canonical source + pinned ref, either a commit or a release tag
 (no live network fetch — this repo is airgap-first, not because infra-ui
 lacks a stable ref) — never hand-edit that file either; re-vendor it per
-README.md's "Portal design tokens" section and the file's own header
-comment. `scripts/check-no-literal-dimensions.sh` guards the other half of
+`docs/portal-tokens.md`'s "Re-vendoring" section and the file's own
+header comment. `scripts/check-no-literal-dimensions.sh` guards the other half of
 that vendoring: it fails if either portal page's `font-size`, the `font`
 shorthand, or any `border-radius` (including longhands) resolves to
 anything but one of the vendored `--text-*`/`--radius-*` tokens, a CSS-wide
-keyword, or the `border-radius: 50%` circle exception — see README.md's
-"Portal design tokens" section and the script's own header comment.
+keyword, or the `border-radius: 50%` circle exception — see
+`docs/portal-tokens.md`'s "Enforcing the dimensional scale" section and
+the script's own header comment.
 
 Releases: bump the one-line `VERSION` file in the PR; the `release-tag`
 workflow mints the annotated `vX.Y.Z` tag on merge to `main`.
@@ -160,7 +171,7 @@ These were all hit in anger; don't "simplify" them away:
   Production ships only `conf.d/empty.caddy`; the whoami image is never
   bundled.
 - Airgap-first: internal CA by default (no ACME/OCSP/egress), or
-  org-issued PEMs via `EDGE_TLS` + `certs/` (see README's TLS runbook).
+  org-issued PEMs via `EDGE_TLS` + `certs/` (see `docs/tls-runbook.md`).
   Never add anything that fetches at runtime. When bumping an image,
   update the digest pin in `docker/compose.yaml`, `docs/images.md`, and
   `ci.yml` together.

@@ -7,7 +7,8 @@
 #
 # It performs, idempotently:
 #   1. /etc/hosts entry mapping <edge-host> -> <gateway-ip>
-#      (no LAN DNS on an airgapped network; see README "EDGE_HOST caveat")
+#      (no LAN DNS on an airgapped network; see docs/tls-runbook.md,
+#      "EDGE_HOST caveat")
 #   2. system trust store install (update-ca-certificates)
 #   3. Firefox trust via the enterprise policy file
 #      /etc/firefox/policies/policies.json (read by both the deb and the

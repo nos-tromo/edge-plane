@@ -110,7 +110,7 @@ secret:
 
 ca-export:
 	@$(COMPOSE) exec -T caddy cat /data/caddy/pki/authorities/local/root.crt > edge-ca-root.crt
-	@echo "Wrote edge-ca-root.crt — distribute to LAN browsers (see README)."
+	@echo "Wrote edge-ca-root.crt — distribute to LAN browsers (see docs/tls-runbook.md)."
 
 smoke:
 	./scripts/smoke.sh
