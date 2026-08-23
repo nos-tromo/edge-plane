@@ -94,8 +94,14 @@ gate: [docs/identity-contract.md](docs/identity-contract.md).
 ## Container hardening
 
 Both services run with `no-new-privileges` and `cap_drop: ALL` (the
-`x-hardened` compose anchor); Caddy adds a read-only root filesystem and
-re-adds only `NET_BIND_SERVICE` for its `:443`/`:80`/`:8443` binds.
+`x-hardened` compose anchor). Neither ends up with an empty capability
+set, though: Caddy re-adds `NET_BIND_SERVICE` for its `:443`/`:80`/`:8443`
+binds, and Authelia re-adds `CHOWN`/`SETUID`/`SETGID`, which its
+entrypoint needs to chown its config and drop to the image's internal
+user. Caddy additionally runs on a read-only root filesystem (`/tmp` and
+`/config` are small tmpfs mounts); Authelia does not, because password
+self-service rewrites the bind-mounted `authelia/users.yml` and its
+SQLite store lives on `edge-state`.
 Federation-wide policy: [../deploy/docs/decisions/0001-container-engine-docker.md](../deploy/docs/decisions/0001-container-engine-docker.md).
 
 The four app-frontend upstreams are **:8080** — the apps' hardened images
