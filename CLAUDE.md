@@ -159,17 +159,24 @@ These were all hit in anger; don't "simplify" them away:
 - Two external volumes: `edge-state` (Authelia's encrypted SQLite —
   TOTP secrets, sessions) and `edge-ca` (Caddy's internal CA + private
   key). `docker compose down -v` can't destroy them; only `make nuke`.
-- Access control lives in `authelia/configuration.yml`: default policy
-  one_factor for all users, but `/grafana` is admins-group only via a
-  match-then-explicit-deny rule pair (order matters, first match wins).
-  It's rendered with `X_AUTHELIA_CONFIG_FILTERS=template` (reads
-  `EDGE_HOST` from env).
+  A third, `edge-notify`, is deliberately project-scoped rather than
+  external: it carries Authelia's filesystem notifications (the one-time
+  codes the `/auth-code` viewer renders), which are short-lived, not
+  durable identity state.
+- Access control lives in `authelia/configuration.yml`: `default_policy:
+  deny`, with a domain-wide catch-all rule granting `one_factor` — so in
+  practice every provisioned account reaches every routed app. The
+  exception is `/grafana`, admins-group only via a match-then-explicit-deny
+  rule pair placed ahead of the catch-all (order matters, first match
+  wins; without the explicit deny a non-admin falls through and is let
+  in). The file is rendered with `X_AUTHELIA_CONFIG_FILTERS=template`,
+  which is what lets those rules read `EDGE_HOST` from the environment.
 - Dev vs prod divergence is a whole-directory swap:
   `compose.override.yaml` replaces the `caddy/conf.d` mount with
   `caddy/conf.d.dev` (containing the `/whoami` route) because Docker
   can't nest a file mount inside a read-only bind-mounted directory.
-  Production ships only `conf.d/empty.caddy`; the whoami image is never
-  bundled.
+  Production ships only `caddy/conf.d/empty.caddy`; the whoami image is
+  never bundled.
 - Airgap-first: internal CA by default (no ACME/OCSP/egress), or
   org-issued PEMs via `EDGE_TLS` + `certs/` (see `docs/tls-runbook.md`).
   Never add anything that fetches at runtime. When bumping an image,

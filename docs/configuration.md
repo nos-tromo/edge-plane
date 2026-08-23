@@ -3,11 +3,14 @@
 All configuration is environment-driven: copy `.env.example` to `.env` and
 adjust per host. `.env` is gitignored and must never be committed.
 
-Config that is not an environment variable lives in two files, both
+Config that is not an environment variable lives mainly in two files, both
 bind-mounted read-only: `caddy/Caddyfile` (routing, TLS, the identity-header
 snippets) and `authelia/configuration.yml` (sessions, storage, access
-control). The user database, `authelia/users.yml`, is the one bind mount
-that is deliberately writable — see
+control). The Caddyfile also imports `caddy/conf.d/*.caddy` for extra
+routes: production ships a single intentionally empty file there, and
+`make up-dev` swaps the whole directory for `caddy/conf.d.dev` (which
+carries the `/whoami` route). The user database, `authelia/users.yml`, is
+the one bind mount that is deliberately writable — see
 [user-accounts.md](user-accounts.md#user-accounts).
 
 ## Environment variables

@@ -27,9 +27,10 @@ help:
 	@echo "  make volumes    create the external edge volumes if missing"
 	@echo "  make pull       pull all images from the registries"
 	@echo "  make bundle     save images as a versioned airgap tarball"
-	@echo "  make up         start (production shape — :443/:80 only)"
+	@echo "  make up         start (production shape — :443/:80/:8443 only)"
 	@echo "  make up-dev     like 'up', plus the whoami header-echo upstream"
-	@echo "  make down       stop (volumes preserved)"
+	@echo "  make stop       stop containers without removing them"
+	@echo "  make down       stop + remove containers (volumes preserved)"
 	@echo "  make restart    down + up"
 	@echo "  make nuke       DESTROY auth state + CA volumes (interactive)"
 	@echo

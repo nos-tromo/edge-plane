@@ -13,11 +13,16 @@ Two services:
 
 | Service | Role | Network membership |
 |---|---|---|
-| `caddy` | TLS termination (`:443`, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` only |
+| `caddy` | TLS termination (`:443` + the `:8443` Open WebUI site, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` **and** the project-internal `default` network |
 | `authelia` | Identity provider: file-backed users, SQLite state (sessions/TOTP/preferences), filesystem notifier | project-internal (default) network only, reached by Caddy via `forward_auth` |
 
-`caddy` joins **only** `edge-net` — never `inference-net` or `data-net` —
-so the gateway itself can never reach a backend or a database directly.
+`caddy` joins `edge-net` and the project-internal `default` network —
+never `inference-net` or `data-net` — so the gateway itself can never
+reach a backend or a database directly. The `default` membership is
+load-bearing, not incidental: it is the only place `forward_auth
+authelia:9091` resolves, because Authelia joins that network alone and is
+never reachable from `edge-net`.
+
 All application traffic flows through each app's own frontend nginx,
 reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`).
@@ -26,15 +31,20 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 
 ## Routing
 
+Every path below is on the main `https://<EDGE_HOST>:443` site, except the
+dev-only `/whoami/*` row. `http://<EDGE_HOST>:80` serves nothing but a 301
+to it, and Open WebUI has its own `:8443` site (after the table).
+
 | Path | Upstream (`edge-net` alias) | Auth | Notes |
 |---|---|---|---|
 | `/chorus/*` | `chorus-frontend:8080` | forward_auth | SPA serves from the sub-path |
 | `/docint/*` | `docint-frontend:8080` | forward_auth | same |
 | `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
 | `/translator/*` | `translator-frontend:8080` | forward_auth | app ignores `X-Auth-User` (stateless) |
-| `/webui/*` | — | forward_auth | redirects to the dedicated `:8443` site — Open WebUI has no sub-path support |
+| `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
+| `/tokens.css` | — (static, `landing/`) | **none** | the vendored `@infra/ui` design tokens both portal pages link. Deliberately unauthenticated (plain CSS, nothing sensitive) and served from an absolute path so `/auth-code/*` — whose handle rewrites every path to `index.html` — can link it too. See [docs/portal-tokens.md](docs/portal-tokens.md) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
 | everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and inline password-change form; light/dark via the shared `infra-ui-theme` tri-state toggle (OS-preference default) |
@@ -44,6 +54,10 @@ site at `https://<EDGE_HOST>:8443/`, published alongside `:443`/`:80` as the
 only other host-port exception, because its image bakes root-absolute asset
 paths and cannot serve from a sub-path — see
 [docs/decisions/0002-open-webui-dedicated-port.md](docs/decisions/0002-open-webui-dedicated-port.md).
+That site runs the same `strip_identity` + `forward_auth` chain as every
+`:443` route, so the identity contract is unchanged; it additionally caps
+long-lived streams at `stream_timeout 30m`, because `forward_auth` gates
+only the WebSocket upgrade.
 
 Full design rationale, including the risk analysis for SPA sub-path serving
 and the Grafana access-model change from obs-plane's tunnel-only v1
@@ -80,8 +94,14 @@ gate: [docs/identity-contract.md](docs/identity-contract.md).
 ## Container hardening
 
 Both services run with `no-new-privileges` and `cap_drop: ALL` (the
-`x-hardened` compose anchor); Caddy adds a read-only root filesystem and
-re-adds only `NET_BIND_SERVICE` for its `:443`/`:80`/`:8443` binds.
+`x-hardened` compose anchor). Neither ends up with an empty capability
+set, though: Caddy re-adds `NET_BIND_SERVICE` for its `:443`/`:80`/`:8443`
+binds, and Authelia re-adds `CHOWN`/`SETUID`/`SETGID`, which its
+entrypoint needs to chown its config and drop to the image's internal
+user. Caddy additionally runs on a read-only root filesystem (`/tmp` and
+`/config` are small tmpfs mounts); Authelia does not, because password
+self-service rewrites the bind-mounted `authelia/users.yml` and its
+SQLite store lives on `edge-state`.
 Federation-wide policy: [../deploy/docs/decisions/0001-container-engine-docker.md](../deploy/docs/decisions/0001-container-engine-docker.md).
 
 The four app-frontend upstreams are **:8080** — the apps' hardened images
@@ -96,7 +116,7 @@ cp .env.example .env
 $EDITOR .env                              # set EDGE_HOST; generate real secrets with `make secret`
 cp authelia/users.template.yml authelia/users.yml
 make user                                 # hash a real password, paste the result into users.yml
-make up                                   # production shape — :443 (+:80 redirect) only
+make up                                   # production shape — :443, :8443 (+:80 redirect) only
 ```
 
 For local iteration, `make up-dev` layers `docker/compose.override.yaml`,
@@ -123,7 +143,8 @@ root to LAN browsers, using an org-issued certificate instead, and the
 make ps                       # service status
 make health                   # caddy + authelia readiness
 make logs S=caddy             # tail logs for one service (omit S= to tail all)
-make down                     # stop (volumes preserved)
+make stop                     # stop containers without removing them
+make down                     # stop + remove containers (volumes preserved)
 make restart                  # down + up
 make smoke                    # end-to-end auth/header checks (needs make up-dev)
 ```
