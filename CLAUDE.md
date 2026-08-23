@@ -171,8 +171,8 @@ These were all hit in anger; don't "simplify" them away:
   `compose.override.yaml` replaces the `caddy/conf.d` mount with
   `caddy/conf.d.dev` (containing the `/whoami` route) because Docker
   can't nest a file mount inside a read-only bind-mounted directory.
-  Production ships only `conf.d/empty.caddy`; the whoami image is never
-  bundled.
+  Production ships only `caddy/conf.d/empty.caddy`; the whoami image is
+  never bundled.
 - Airgap-first: internal CA by default (no ACME/OCSP/egress), or
   org-issued PEMs via `EDGE_TLS` + `certs/` (see `docs/tls-runbook.md`).
   Never add anything that fetches at runtime. When bumping an image,
