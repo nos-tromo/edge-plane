@@ -31,15 +31,20 @@ reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
 
 ## Routing
 
+Every path below is on the main `https://<EDGE_HOST>:443` site, except the
+dev-only `/whoami/*` row. `http://<EDGE_HOST>:80` serves nothing but a 301
+to it, and Open WebUI has its own `:8443` site (after the table).
+
 | Path | Upstream (`edge-net` alias) | Auth | Notes |
 |---|---|---|---|
 | `/chorus/*` | `chorus-frontend:8080` | forward_auth | SPA serves from the sub-path |
 | `/docint/*` | `docint-frontend:8080` | forward_auth | same |
 | `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
 | `/translator/*` | `translator-frontend:8080` | forward_auth | app ignores `X-Auth-User` (stateless) |
-| `/webui/*` | — | forward_auth | redirects to the dedicated `:8443` site — Open WebUI has no sub-path support |
+| `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
+| `/tokens.css` | — (static, `landing/`) | **none** | the vendored `@infra/ui` design tokens both portal pages link. Deliberately unauthenticated (plain CSS, nothing sensitive) and served from an absolute path so `/auth-code/*` — whose handle rewrites every path to `index.html` — can link it too. See [docs/portal-tokens.md](docs/portal-tokens.md) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
 | everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and inline password-change form; light/dark via the shared `infra-ui-theme` tri-state toggle (OS-preference default) |
@@ -49,6 +54,10 @@ site at `https://<EDGE_HOST>:8443/`, published alongside `:443`/`:80` as the
 only other host-port exception, because its image bakes root-absolute asset
 paths and cannot serve from a sub-path — see
 [docs/decisions/0002-open-webui-dedicated-port.md](docs/decisions/0002-open-webui-dedicated-port.md).
+That site runs the same `strip_identity` + `forward_auth` chain as every
+`:443` route, so the identity contract is unchanged; it additionally caps
+long-lived streams at `stream_timeout 30m`, because `forward_auth` gates
+only the WebSocket upgrade.
 
 Full design rationale, including the risk analysis for SPA sub-path serving
 and the Grafana access-model change from obs-plane's tunnel-only v1
