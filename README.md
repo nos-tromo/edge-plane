@@ -101,7 +101,7 @@ cp .env.example .env
 $EDITOR .env                              # set EDGE_HOST; generate real secrets with `make secret`
 cp authelia/users.template.yml authelia/users.yml
 make user                                 # hash a real password, paste the result into users.yml
-make up                                   # production shape — :443 (+:80 redirect) only
+make up                                   # production shape — :443, :8443 (+:80 redirect) only
 ```
 
 For local iteration, `make up-dev` layers `docker/compose.override.yaml`,
@@ -128,7 +128,8 @@ root to LAN browsers, using an org-issued certificate instead, and the
 make ps                       # service status
 make health                   # caddy + authelia readiness
 make logs S=caddy             # tail logs for one service (omit S= to tail all)
-make down                     # stop (volumes preserved)
+make stop                     # stop containers without removing them
+make down                     # stop + remove containers (volumes preserved)
 make restart                  # down + up
 make smoke                    # end-to-end auth/header checks (needs make up-dev)
 ```
