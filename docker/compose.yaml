@@ -69,7 +69,8 @@ services:
       <<: *no-proxy-env
       EDGE_HOST: ${EDGE_HOST:?EDGE_HOST must be set in .env}
       # Unset/empty -> internal CA. For an org-issued cert set EDGE_TLS in
-      # .env to the in-container PEM paths (see caddy/Caddyfile + README).
+      # .env to the in-container PEM paths (see caddy/Caddyfile and
+      # docs/tls-runbook.md).
       EDGE_TLS: ${EDGE_TLS:-internal}
       # Uniform federation UI-language switch for the landing page (en|de,
       # default en). Intentionally unprefixed — same name in every repo.

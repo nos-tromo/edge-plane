@@ -18,7 +18,7 @@ authentication_backend:
     disable: false
   # Reset needs the notifier; ours is the filesystem notifier (airgap), so
   # the built-in "forgot password" flow would dead-end in a file only
-  # operators read. Resets are admin-mediated instead (README §User accounts).
+  # operators read. Resets are admin-mediated instead (docs/user-accounts.md).
   password_reset:
     disable: true
 
