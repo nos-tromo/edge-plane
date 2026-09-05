@@ -90,7 +90,12 @@ services:
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
       - ../landing:/srv/landing:ro
       - ../certs:/etc/caddy/certs:ro
-      - ../authcode:/srv/authcode:ro
+      # File bind + sibling volume, NOT a directory bind with the volume
+      # nested inside it: Docker Desktop (VirtioFS, Engine 29 line) silently
+      # drops a mount nested inside a bind for compose-created containers
+      # (docker/desktop-feedback #264/#279; still reproducible on 4.89.0).
+      # /srv/authcode itself is plain rootfs, so nothing nests under a bind.
+      - ../authcode/index.html:/srv/authcode/index.html:ro
       - edge-notify:/srv/authcode/notify:ro
       - edge-ca:/data
     networks:

@@ -166,7 +166,11 @@ These were all hit in anger; don't "simplify" them away:
   A third, `edge-notify`, is deliberately project-scoped rather than
   external: it carries Authelia's filesystem notifications (the one-time
   codes the `/auth-code` viewer renders), which are short-lived, not
-  durable identity state.
+  durable identity state. Caddy gets it beside a *file* bind of
+  `authcode/index.html`, never nested inside a directory bind of
+  `authcode/`: Docker Desktop silently drops a mount nested inside a bind
+  for compose-created containers, so the viewer would render "no code
+  pending" forever.
 - Access control lives in `authelia/configuration.yml`: `default_policy:
   deny`, with a domain-wide catch-all rule granting `one_factor` — so in
   practice every provisioned account reaches every routed app. The
@@ -180,7 +184,8 @@ These were all hit in anger; don't "simplify" them away:
   `caddy/conf.d.dev` (containing the `/whoami` route) because Docker
   can't nest a file mount inside a read-only bind-mounted directory.
   Production ships only `caddy/conf.d/empty.caddy`; the whoami image is
-  never bundled.
+  never bundled. The same class of trap is why `authcode/` is mounted as a
+  single file rather than a directory (see the `edge-notify` bullet above).
 - Airgap-first: internal CA by default (no ACME/OCSP/egress), or
   org-issued PEMs via `EDGE_TLS` + `certs/` (see `docs/tls-runbook.md`).
   Never add anything that fetches at runtime. When bumping an image,
