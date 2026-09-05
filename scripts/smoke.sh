@@ -11,7 +11,21 @@
 #      cookie is rejected
 set -euo pipefail
 
-BASE="${EDGE_SMOKE_BASE:-https://127.0.0.1}"
+# Caddy's site block is bound to EDGE_HOST, so a request to any other name
+# matches no site and returns an empty 200 instead of the auth redirect —
+# default to the host the gateway is actually configured for. Precedence
+# mirrors compose's own (shell env wins over --env-file); the .env value
+# carries a trailing inline comment, hence the trim.
+edge_host="${EDGE_HOST:-}"
+if [[ -z "$edge_host" && -f .env ]]; then
+  edge_host=$(sed -n 's/^[[:space:]]*EDGE_HOST[[:space:]]*=//p' .env | head -1)
+  edge_host=${edge_host%%#*}
+  edge_host=${edge_host//[[:space:]]/}
+  edge_host=${edge_host//\"/}
+  edge_host=${edge_host//\'/}
+fi
+BASE="${EDGE_SMOKE_BASE:-https://${edge_host:-127.0.0.1}}"
+echo "smoke: base $BASE"
 USER_NAME="jane.doe"
 PASSWORD="insecure-dev-password"
 DISPLAY_NAME="Jane Doe"
