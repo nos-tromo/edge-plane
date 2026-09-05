@@ -7,6 +7,8 @@
 #      X-Auth-Name upstream
 #   4. client-forged X-Auth-User, X-Auth-Groups, and X-Auth-Name headers
 #      NEVER reach the upstream
+#   5. logout destroys the session server-side - replaying the pre-logout
+#      cookie is rejected
 set -euo pipefail
 
 BASE="${EDGE_SMOKE_BASE:-https://127.0.0.1}"
@@ -20,7 +22,8 @@ if [[ -f authelia/users.yml ]]; then
   [[ -n "$live_name" ]] && DISPLAY_NAME="$live_name"
 fi
 JAR="$(mktemp)"
-trap 'rm -f "$JAR"' EXIT
+REPLAY="$(mktemp)"
+trap 'rm -f "$JAR" "$REPLAY"' EXIT
 CURL=(curl -sk --connect-timeout 5)
 
 fail() { echo "SMOKE FAIL: $*" >&2; exit 1; }
@@ -158,5 +161,26 @@ chback=$(run_curl "password revert" -b "$JAR" -o /dev/null -w '%{http_code}' \
   "$BASE/auth/api/change-password")
 [[ "$chback" == "200" ]] || fail "password revert returned HTTP $chback — user is on $TMP_PW"
 echo "ok: password self-service API cycle (elevation, change, revert)"
+
+# Sign-out is server-side, not just a cookie deletion. The portal's
+# "Sign out" control is a plain link to /auth/logout, which Caddy proxies
+# to Authelia; Authelia's logout page POSTs /auth/api/logout. Snapshot the
+# live jar FIRST so we replay the pre-logout cookie value - replaying the
+# post-logout jar would prove nothing (Authelia expires the cookie there).
+cp "$JAR" "$REPLAY"
+
+logout_page=$(run_curl "logout page" -o /dev/null -w '%{http_code} %{content_type}' \
+  -b "$JAR" -H 'Accept: text/html' "$BASE/auth/logout")
+[[ "$logout_page" == 200\ text/html* ]] || fail "logout page did not load: $logout_page"
+
+logout=$(run_curl "logout API" -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' \
+  -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/auth/api/logout")
+[[ "$logout" == "200" ]] || fail "logout returned HTTP $logout"
+
+replay=$(run_curl "pre-logout cookie replay" -o /dev/null -w '%{http_code} %{redirect_url}' \
+  -b "$REPLAY" -H 'Accept: text/html' "$BASE/whoami/")
+[[ "$replay" == 302\ *"/auth"* ]] \
+  || fail "pre-logout session cookie still accepted after logout (expected 302 -> /auth, got: $replay)"
+echo "ok: logout destroys the session server-side (pre-logout cookie rejected)"
 
 echo "SMOKE PASS"
