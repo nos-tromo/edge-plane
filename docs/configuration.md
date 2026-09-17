@@ -26,6 +26,13 @@ the one bind mount that is deliberately writable — see
 | `RESPONSE_LANGUAGE` | `en` | Landing-page UI language (`en` \| `de`) — see below |
 | `EDGE_SUPPORT_CONTACT` | unset → tile hidden | Support contact rendered on the portal's "report a problem" tile. Never commit a real value |
 | `EXTRA_NO_PROXY` | unset | Extra hostnames to exempt from a corporate proxy — see below |
+| `EDGE_SESSION_EXPIRATION` | `12h` | Absolute session lifetime — see [user-accounts.md](user-accounts.md#session-behaviour) |
+| `EDGE_SESSION_INACTIVITY` | `4h` | Idle timeout before re-login |
+| `EDGE_SESSION_REMEMBER_ME` | `2M` | Session lifetime when "remember me" is ticked |
+
+The `EDGE_SESSION_*` values use Authelia's duration syntax (`30m`, `12h`,
+`1w`, `2M`, `1y`) and are rendered into `authelia/configuration.yml` by
+its template filter, so the file itself stays untouched across updates.
 
 The three `AUTHELIA_*` values in `.env.example` are insecure dev/CI
 placeholders. Generate real ones with `make secret`.

@@ -46,10 +46,11 @@ session:
   same_site: lax
   # Defaults would be 1h expiration / 5min inactivity — the cause of the
   # pre-v0.3 frequent-logout complaints. Working-day session, meal-proof
-  # inactivity window, vacation-proof remember-me.
-  expiration: 12h
-  inactivity: 4h
-  remember_me: 2M
+  # inactivity window, vacation-proof remember-me. Overridable per host
+  # via EDGE_SESSION_* in .env (see docs/configuration.md).
+  expiration: '{{ env "EDGE_SESSION_EXPIRATION" | default "12h" }}'
+  inactivity: '{{ env "EDGE_SESSION_INACTIVITY" | default "4h" }}'
+  remember_me: '{{ env "EDGE_SESSION_REMEMBER_ME" | default "2M" }}'
   cookies:
     - domain: '{{ env "EDGE_HOST" }}'
       authelia_url: 'https://{{ env "EDGE_HOST" }}/auth'
