@@ -87,7 +87,10 @@ With real data in the DB, use `authelia storage encryption change-key`
 
 ## Session behaviour
 
-Sessions last 12 h (4 h inactivity timeout; "remember me" 2 months).
+Sessions last 12 h by default (4 h inactivity timeout; "remember me"
+2 months). Override per host with `EDGE_SESSION_EXPIRATION`,
+`EDGE_SESSION_INACTIVITY` and `EDGE_SESSION_REMEMBER_ME` in `.env` — see
+[configuration.md](configuration.md#environment-variables).
 On expiry, in-flight requests/streams are not severed — forward-auth gates
 each new request — so server-side jobs keep running; the next UI request
 redirects to the login portal, and the page resumes after re-login.
