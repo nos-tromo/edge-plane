@@ -19,7 +19,7 @@ jobs:
     # compose-files omitted for the same reason as obs-plane: the reusable
     # workflow's env stubs don't cover this repo's required vars; compose
     # validation happens in validate-configs below, seeded from .env.example.
-    uses: nos-tromo/.github/.github/workflows/infra-validation.yml@df6cdc192fe492198a8229b8bf49b137aeadf504 # v3.19
+    uses: nos-tromo/.github/.github/workflows/infra-validation.yml@44032ac756bd7700ba19fc65e141a5c2f8992416 # v3.20
     with:
       shell-scripts-glob: 'scripts/*.sh'
 
