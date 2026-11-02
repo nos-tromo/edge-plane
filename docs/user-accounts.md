@@ -91,16 +91,30 @@ Every protected route requires a password **and** a time-based one-time
 password (TOTP) from an authenticator app (`EDGE_AUTH_POLICY`, default
 `two_factor`). TOTP works without any network access.
 
-- **Enrolment** happens on a user's first login after the policy is in
-  force: after the password, Authelia asks for the second factor and offers
-  to register a device. Registering requires an identity verification code,
-  which the filesystem notifier writes like any other code; the user reads
-  it at `/auth-code`, which therefore stays `one_factor` — gating it behind
-  `two_factor` would lock out everyone without a device. Then they scan the
-  QR code with their authenticator app.
-- **Lost device**: an admin removes the user's TOTP registration, and the
-  user enrols again on the next login:
-  `docker compose --env-file .env -f docker/compose.yaml exec authelia authelia storage user totp delete <username>`.
+**Second factors are provisioned by an admin, like passwords.** Users do
+not enrol a device through the portal. Enrolling, or replacing a device,
+needs an elevated session, and elevating takes the one-time verification
+code the filesystem notifier writes. If that code were readable with the
+password alone, anyone holding only the password could swap in their own
+device. That was measured on this Authelia version, with
+`identity_validation.elevated_session.require_second_factor` on. So
+`/auth-code` is behind the same `two_factor` policy as everything else,
+and only an admin creates registrations.
+
+- **Provisioning**: with the stack running, `make totp U=<username>` prints
+  an `otpauth://` URI for that user. The URI contains the secret. Hand it
+  over in person: most authenticator apps accept it pasted, or as the
+  base32 `secret=` value typed in by hand. The account's issuer is
+  `EDGE_HOST`.
+- **Before switching an existing deployment to `two_factor`**, provision
+  every user. A user without a registration cannot log in, because the
+  portal's own enrolment needs a code they can no longer read. Until then,
+  run with `EDGE_AUTH_POLICY=one_factor`. `make totp` works against a
+  running older version too.
+- **New users**: provision the password (`make user`) and the TOTP
+  (`make totp`) together.
+- **Lost device**: `make totp U=<username> FORCE=1` replaces the
+  registration. Hand over the new URI the same way.
 - **Dev**: `make up-dev` sets `EDGE_AUTH_POLICY=one_factor`, so local work
   and the smoke test need no device. Set `EDGE_AUTH_POLICY` in `.env` to
   override either shape.

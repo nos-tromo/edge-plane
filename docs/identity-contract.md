@@ -118,22 +118,30 @@ The default policy is `deny`, with a final catch-all rule granting
 `two_factor` (password plus TOTP; `EDGE_AUTH_POLICY`, see
 [user-accounts.md](user-accounts.md#second-factor)) to every user for the
 whole protected domain — so in practice any provisioned account reaches
-any routed app. The `/auth-code` viewer is matched first and stays
-`one_factor`: enrolling a second factor needs the code it shows. The exception is
+any routed app. There is no `one_factor` exception, not even for the
+`/auth-code` viewer. See [user-accounts.md](user-accounts.md#second-factor)
+for why second factors are admin-provisioned. The exception is
 Grafana: **`/grafana` is admins-group only**, expressed as a
 match-then-explicit-deny rule pair.
 
 ```yaml
 - domain: '{{ env "EDGE_HOST" }}'
   resources:
-    - '^/grafana(/|$)'
+    - '(?i)^/grafana(/|$)'
   subject: 'group:admins'
   policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
 - domain: '{{ env "EDGE_HOST" }}'
   resources:
-    - '^/grafana(/|$)'
+    - '(?i)^/grafana(/|$)'
   policy: deny
 ```
+
+The patterns are case-insensitive (`(?i)`) because Caddy's `path` matcher
+is. Without it, `/Grafana/` is routed to Grafana by Caddy but matches
+neither Grafana rule here, so it falls through to the catch-all. Dot
+segments, percent-encoding and repeated slashes need no such care:
+Authelia normalizes the path before matching (verified for
+`/chorus/../grafana/`, `//grafana/` and `/%67rafana/`).
 
 Order matters — first match wins — and the pair is deliberate: `subject`
 is part of a rule's **match** criteria, not a condition applied after

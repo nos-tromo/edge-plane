@@ -55,6 +55,7 @@ make logs S=caddy   # tail one service (omit S= for all)
 make down           # stop, volumes preserved
 make user           # hash a password for authelia/users.yml (argon2)
 make secret         # generate a random secret for .env
+make totp U=<user>  # provision a user's TOTP (prints the otpauth URI); FORCE=1 replaces
 make ca-export      # write internal CA root to edge-ca-root.crt
 make bundle         # airgap tarball of the latest annotated tag
 EDGE_PLANE_VERSION_OVERRIDE=<v> make bundle   # bundle the working tree instead
@@ -189,12 +190,16 @@ These were all hit in anger; don't "simplify" them away:
   deny`, with a domain-wide catch-all rule granting `EDGE_AUTH_POLICY`
   (default `two_factor`; `make up-dev` sets `one_factor`, which the smoke
   test's password-only login relies on) — so in practice every provisioned
-  account reaches every routed app. `/auth-code` is matched first and
-  stays `one_factor`: TOTP enrolment needs the code it shows. The
-  exception is `/grafana`, admins-group only via a match-then-explicit-deny
-  rule pair placed ahead of the catch-all (order matters, first match
-  wins; without the explicit deny a non-admin falls through and is let
-  in). The file is rendered with `X_AUTHELIA_CONFIG_FILTERS=template`,
+  account reaches every routed app. There is no `one_factor` exception:
+  a one-time code readable with the password alone (e.g. at `/auth-code`)
+  lets a session elevate and replace the user's second factor — measured,
+  even with `elevated_session.require_second_factor` — so TOTP is
+  admin-provisioned (`make totp`). Resource patterns are `(?i)` because
+  Caddy's path matcher is case-insensitive and Authelia's regex is not
+  (`/Grafana/` otherwise skipped the gate). The exception is `/grafana`,
+  admins-group only via a match-then-explicit-deny rule pair placed ahead
+  of the catch-all (order matters, first match wins; without the explicit
+  deny a non-admin falls through and is let in). The file is rendered with `X_AUTHELIA_CONFIG_FILTERS=template`,
   which is what lets those rules read `EDGE_HOST` from the environment.
 - Dev vs prod divergence is a whole-directory swap:
   `compose.override.yaml` replaces the `caddy/conf.d` mount with

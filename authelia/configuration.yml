@@ -25,31 +25,43 @@ authentication_backend:
 access_control:
   default_policy: deny
   rules:
-    # The one-time-code viewer stays one_factor: registering a second
-    # factor needs the code it shows, so gating it behind two_factor would
-    # lock every user without a registered device out of enrolment.
-    # Order matters: first match wins.
-    - domain: '{{ env "EDGE_HOST" }}'
-      resources:
-        - '^/auth-code(/|$)'
-      policy: one_factor
+    # Resource patterns are case-insensitive ((?i)) because Caddy's path
+    # matcher is: without it, /Grafana/ is routed to Grafana by Caddy but
+    # skips the Grafana rules here. (Dot segments, encoded characters and
+    # repeated slashes need no such care: Authelia normalizes the path
+    # before matching.) Order matters: first match wins.
+    #
+    # There is deliberately no one_factor exception, not even for the
+    # /auth-code viewer: a one-time code read with just the password is
+    # enough to elevate a session and replace the user's second factor.
+    # Second factors are therefore provisioned by an admin (`make totp`,
+    # docs/user-accounts.md), never enrolled through the portal.
     # Grafana is operator tooling: admins group only. Subject is part of
     # a rule's MATCH criteria — a non-admin simply skips the first rule —
     # so the explicit deny below is what actually blocks everyone else.
     - domain: '{{ env "EDGE_HOST" }}'
       resources:
-        - '^/grafana(/|$)'
+        - '(?i)^/grafana(/|$)'
       subject: 'group:admins'
       policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
     - domain: '{{ env "EDGE_HOST" }}'
       resources:
-        - '^/grafana(/|$)'
+        - '(?i)^/grafana(/|$)'
       policy: deny
     # Everything else: password plus a second factor (TOTP; works without
     # network access). EDGE_AUTH_POLICY=one_factor is the escape hatch for
     # dev hosts.
     - domain: '{{ env "EDGE_HOST" }}'
       policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
+
+# Elevating a session (needed to register or remove a second-factor device,
+# and for the portal's password change) asks for the second factor too, once
+# the user has one. Defence in depth only: measured on this version, a
+# session holding just the password plus the one-time code could still
+# elevate and replace the device, which is why /auth-code is not one_factor.
+identity_validation:
+  elevated_session:
+    require_second_factor: true
 
 session:
   name: authelia_session
