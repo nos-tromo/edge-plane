@@ -39,11 +39,18 @@ issuer. Nothing issued it in production before edge-plane. The flow:
    It is not an identity key: apps must keep keying on `X-Auth-User`.
    The portal (`landing/index.html`) uses it to greet the signed-in user
    by name, falling back to `X-Auth-User` when absent.
+4. On every proxied request to an app, Caddy also sets **`X-Edge-Secret`**
+   to that app's own secret and **`X-Request-ID`** to the request's id —
+   see [Edge secret](#edge-secret) and
+   [Request id and access log](#request-id-and-access-log). Client-supplied
+   values of both are replaced.
 
-This is only sound because apps are unreachable except through the
-gateway (production publishes no host ports anywhere else in the
-federation) and the gateway strips the header before setting its own
-value — verified by `scripts/smoke.sh`'s spoof test.
+Production publishes no host ports anywhere else in the federation, and
+the gateway strips the identity headers before setting its own values —
+verified by `scripts/smoke.sh`'s spoof test. That alone does not make the
+headers trustworthy, though: the apps' backends also sit on the shared
+`inference-net` and `data-net` networks, where any container could call
+them directly with forged headers. The edge secret closes that gap.
 
 **`Authorization` pass-through rule**: the gateway owns `X-Auth-User` /
 `Remote-*` and strips them from clients, but passes `Authorization`
@@ -53,14 +60,66 @@ trusted-header handshake). Full rationale, including why trusted-header
 was chosen over pushing token validation into four apps, is in
 [2026-07-23-edge-plane-design.md](2026-07-23-edge-plane-design.md).
 
+## Edge secret
+
+Each app that consumes the identity headers gets its own secret, set in
+edge-plane's `.env` (`CHORUS_EDGE_SECRET`, `DOCINT_EDGE_SECRET`,
+`NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET`)
+and, with the same value under the same name, in that app's own `.env`.
+The gateway sends it as `X-Edge-Secret` on every request it proxies to
+the app (the `header_up` lines in `caddy/Caddyfile`). The app's frontend
+passes request headers through to its backend, and the backend:
+
+- trusts `X-Auth-*` only when `X-Edge-Secret` matches its secret (a
+  constant-time comparison), and otherwise ignores them — the request is
+  then treated as carrying no identity at all (401 in production);
+- rejects a configured secret shorter than 32 characters at startup;
+- without a secret of its own, behaves as before and logs a startup
+  warning that identity headers are trusted from any caller.
+
+Per-app values mean a compromised app cannot impersonate users towards
+another app. Grafana gets no secret: it cannot check one, and it is
+reachable on `edge-net` only.
+
+Open WebUI cannot check a secret itself either, and it does sit on
+`inference-net`. open-webui-service therefore puts a small nginx in front
+of it, in the same network namespace, which passes the identity headers on
+only when the secret matches.
+
+Direct service-to-service calls do not use the edge secret. docint's call
+to Nextext authenticates with a service token instead (Nextext's
+`NEXTEXT_SERVICE_TOKENS`, docint's `NEXTEXT_API_KEY`), which maps to a
+fixed service principal and cannot carry a user's identity.
+
+**Setting up or rotating.** Generate each value with `make secret`, put
+it into edge-plane's `.env` and the app's `.env`, then recreate both
+(`make up` in each; a plain restart keeps the old value). Order matters
+only when an app starts enforcing for the first time: the gateway has to
+send the secret before the app requires it, otherwise every request to
+that app is unauthenticated. `deploy`'s `make up` starts the gateway last,
+so a full bring-up has no such window.
+
+## Request id and access log
+
+Caddy writes one JSON access line per request to stdout (the
+`access_log` snippet): method, path, status, duration, client address,
+the authenticated account (`user`) and the request id (`uuid`). The
+query string is cut from the URI and all request and response headers are
+dropped, since they carry referers, cookies and the identity headers. The
+same id goes to each app as `X-Request-ID`, so the gateway's line can be
+matched with the app's own records of the request.
+
 ## Access control: the admins-group `/grafana` gate
 
 Authentication says *who* you are; authorization says *where you may go*.
 The latter lives in `authelia/configuration.yml`, not in Caddy.
 
 The default policy is `deny`, with a final catch-all rule granting
-`one_factor` to every user for the whole protected domain — so in
-practice any provisioned account reaches any routed app. The exception is
+`two_factor` (password plus TOTP; `EDGE_AUTH_POLICY`, see
+[user-accounts.md](user-accounts.md#second-factor)) to every user for the
+whole protected domain — so in practice any provisioned account reaches
+any routed app. The `/auth-code` viewer is matched first and stays
+`one_factor`: enrolling a second factor needs the code it shows. The exception is
 Grafana: **`/grafana` is admins-group only**, expressed as a
 match-then-explicit-deny rule pair.
 
@@ -69,7 +128,7 @@ match-then-explicit-deny rule pair.
   resources:
     - '^/grafana(/|$)'
   subject: 'group:admins'
-  policy: one_factor
+  policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
 - domain: '{{ env "EDGE_HOST" }}'
   resources:
     - '^/grafana(/|$)'
@@ -80,7 +139,7 @@ Order matters — first match wins — and the pair is deliberate: `subject`
 is part of a rule's **match** criteria, not a condition applied after
 matching, so a non-admin does not fail the first rule, it simply skips
 it. Without the explicit `deny` immediately behind it, a non-admin would
-fall through to the catch-all `one_factor` rule and be let in. Collapsing
+fall through to the catch-all rule and be let in. Collapsing
 the pair into one rule, or reordering it, silently opens Grafana to every
 account.
 

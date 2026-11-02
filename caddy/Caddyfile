@@ -13,8 +13,10 @@
 }
 
 # The trusted-header model rests on this snippet: strip every identity
-# header a client could smuggle in, before any routing happens.
+# header a client could smuggle in, before any routing happens. That
+# includes X-Edge-Secret, which only the gateway may set (see the app routes).
 (strip_identity) {
+	request_header -X-Edge-Secret
 	request_header -X-Auth-User
 	request_header -X-Auth-Email
 	request_header -X-Auth-Groups
@@ -41,6 +43,24 @@
 	}
 }
 
+# Access log: one JSON line per request with the authenticated account
+# (`user`) and Caddy's request id (`uuid`, the value the app upstreams
+# receive as X-Request-ID). The query string is cut from the URI and
+# request/response headers are dropped (they carry referers, cookies and
+# the identity headers), so the line holds who, what path, when, from where
+# and with what result, never request content.
+(access_log) {
+	log {
+		output stdout
+		format filter {
+			request>uri regexp `\?.*$` "?<redacted>"
+			request>headers delete
+			resp_headers delete
+		}
+	}
+	log_append user {http.request.header.X-Auth-User}
+}
+
 http://{$EDGE_HOST}:80 {
 	redir https://{$EDGE_HOST}{uri} permanent
 }
@@ -52,6 +72,7 @@ https://{$EDGE_HOST}:443 {
 	# and place the PEM pair in ./certs/ (bind-mounted read-only).
 	tls {$EDGE_TLS:internal}
 	import strip_identity
+	import access_log
 
 	# Vendored infra-ui design tokens (landing/tokens.css — see its header
 	# for provenance): plain design-token CSS, not sensitive, so it's
@@ -75,6 +96,16 @@ https://{$EDGE_HOST}:443 {
 		reverse_proxy authelia:9091
 	}
 
+	# Every app upstream gets two headers. X-Edge-Secret carries that app's
+	# own secret (from .env): its backend trusts X-Auth-* only when the
+	# secret matches, because the backends sit on shared networks where any
+	# container could otherwise send forged identity headers. Per-app values
+	# keep one app from impersonating users towards another. The quotes make
+	# an unset secret an empty header, which an app without its own secret
+	# ignores. X-Request-ID is the id this gateway also logs (`uuid` in
+	# access_log), so its line can be matched with the app's records. Grafana gets neither:
+	# it cannot check a secret and is reachable on edge-net only.
+	#
 	# App routes: prefix is NOT stripped — each upstream serves under
 	# its sub-path (SPA base / serve_from_sub_path; delivery steps ②–④).
 	# Each matcher covers the bare prefix too (/chorus as well as
@@ -83,22 +114,34 @@ https://{$EDGE_HOST}:443 {
 	@chorus path /chorus /chorus/*
 	handle @chorus {
 		import authed
-		reverse_proxy chorus-frontend:8080
+		reverse_proxy chorus-frontend:8080 {
+			header_up X-Edge-Secret "{$CHORUS_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
 	}
 	@docint path /docint /docint/*
 	handle @docint {
 		import authed
-		reverse_proxy docint-frontend:8080
+		reverse_proxy docint-frontend:8080 {
+			header_up X-Edge-Secret "{$DOCINT_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
 	}
 	@nextext path /nextext /nextext/*
 	handle @nextext {
 		import authed
-		reverse_proxy nextext-frontend:8080
+		reverse_proxy nextext-frontend:8080 {
+			header_up X-Edge-Secret "{$NEXTEXT_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
 	}
 	@translator path /translator /translator/*
 	handle @translator {
 		import authed
-		reverse_proxy translator-frontend:8080
+		reverse_proxy translator-frontend:8080 {
+			header_up X-Edge-Secret "{$TRANSLATOR_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
 	}
 	# Open WebUI has no sub-path support (its SvelteKit frontend bakes
 	# root-absolute asset paths, e.g. /_app/..., at image build time —
@@ -151,6 +194,7 @@ https://{$EDGE_HOST}:443 {
 https://{$EDGE_HOST}:8443 {
 	tls {$EDGE_TLS:internal}
 	import strip_identity
+	import access_log
 
 	# The proxy must live inside a handle block: at site level Caddy
 	# orders forward_auth BEFORE request_header, so strip_identity would
@@ -159,6 +203,8 @@ https://{$EDGE_HOST}:8443 {
 	handle {
 		import authed
 		reverse_proxy open-webui:8080 {
+			header_up X-Edge-Secret "{$OPEN_WEBUI_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
 			# Cap long-lived streams (socket.io): forward_auth only
 			# gates the HTTP upgrade, so an open WebSocket would
 			# otherwise outlive the Authelia session indefinitely.

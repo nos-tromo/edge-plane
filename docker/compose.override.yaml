@@ -12,6 +12,16 @@ services:
   caddy:
     volumes:
       - ../caddy/conf.d.dev:/etc/caddy/conf.d:ro
+    environment:
+      # The whoami route stands in for an app upstream and gets an edge
+      # secret like one; scripts/smoke.sh asserts this exact value arrives.
+      WHOAMI_EDGE_SECRET: smoke-test-edge-secret-not-for-production-000
+
+  authelia:
+    environment:
+      # Dev shape keeps password-only login, so the smoke test (and local
+      # dev) need no second factor. Production defaults to two_factor.
+      EDGE_AUTH_POLICY: ${EDGE_AUTH_POLICY:-one_factor}
 
   whoami:
     image: docker.io/traefik/whoami:v1.11.0@sha256:200689790a0a0ea48ca45992e0450bc26ccab5307375b41c84dfc4f2475937ab

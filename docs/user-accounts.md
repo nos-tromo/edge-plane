@@ -85,6 +85,26 @@ With real data in the DB, use `authelia storage encryption change-key`
   rewrites the file to its full schema on the first self-service change, so
   a post-rollout diff looking unfamiliar is expected.
 
+## Second factor
+
+Every protected route requires a password **and** a time-based one-time
+password (TOTP) from an authenticator app (`EDGE_AUTH_POLICY`, default
+`two_factor`). TOTP works without any network access.
+
+- **Enrolment** happens on a user's first login after the policy is in
+  force: after the password, Authelia asks for the second factor and offers
+  to register a device. Registering requires an identity verification code,
+  which the filesystem notifier writes like any other code; the user reads
+  it at `/auth-code`, which therefore stays `one_factor` — gating it behind
+  `two_factor` would lock out everyone without a device. Then they scan the
+  QR code with their authenticator app.
+- **Lost device**: an admin removes the user's TOTP registration, and the
+  user enrols again on the next login:
+  `docker compose --env-file .env -f docker/compose.yaml exec authelia authelia storage user totp delete <username>`.
+- **Dev**: `make up-dev` sets `EDGE_AUTH_POLICY=one_factor`, so local work
+  and the smoke test need no device. Set `EDGE_AUTH_POLICY` in `.env` to
+  override either shape.
+
 ## Session behaviour
 
 Sessions last 12 h by default (4 h inactivity timeout; "remember me"

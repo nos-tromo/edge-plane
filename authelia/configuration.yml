@@ -25,21 +25,31 @@ authentication_backend:
 access_control:
   default_policy: deny
   rules:
+    # The one-time-code viewer stays one_factor: registering a second
+    # factor needs the code it shows, so gating it behind two_factor would
+    # lock every user without a registered device out of enrolment.
+    # Order matters: first match wins.
+    - domain: '{{ env "EDGE_HOST" }}'
+      resources:
+        - '^/auth-code(/|$)'
+      policy: one_factor
     # Grafana is operator tooling: admins group only. Subject is part of
     # a rule's MATCH criteria — a non-admin simply skips the first rule —
     # so the explicit deny below is what actually blocks everyone else.
-    # Order matters: first match wins.
     - domain: '{{ env "EDGE_HOST" }}'
       resources:
         - '^/grafana(/|$)'
       subject: 'group:admins'
-      policy: one_factor
+      policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
     - domain: '{{ env "EDGE_HOST" }}'
       resources:
         - '^/grafana(/|$)'
       policy: deny
+    # Everything else: password plus a second factor (TOTP; works without
+    # network access). EDGE_AUTH_POLICY=one_factor is the escape hatch for
+    # dev hosts.
     - domain: '{{ env "EDGE_HOST" }}'
-      policy: one_factor
+      policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
 
 session:
   name: authelia_session

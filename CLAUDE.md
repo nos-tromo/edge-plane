@@ -115,15 +115,29 @@ Every request through the gateway follows strip → auth → inject:
    `X-Auth-Name` (the `displayname` from `authelia/users.yml`) is
    decorative — UI display only, e.g. the portal's greeting; apps must
    keep keying identity on `X-Auth-User`.
+4. Each app's `reverse_proxy` also sets `X-Edge-Secret` (that app's own
+   secret from `.env`, e.g. `CHORUS_EDGE_SECRET`) and `X-Request-ID`
+   (`{http.request.uuid}`). The apps trust `X-Auth-*` only with a matching
+   secret: their backends share `inference-net`/`data-net` with other
+   containers. `strip_identity` also removes client-sent `X-Edge-Secret`.
+   Keep the value quoted (`"{$CHORUS_EDGE_SECRET}"`) so an unset secret
+   becomes an empty header instead of a parse error; snippet arguments
+   (`{args[0]}`) are not a substitute — an empty one leaves the literal
+   placeholder in the header. Grafana gets neither header.
+
+The `access_log` snippet writes one filtered JSON line per request (no
+query string, no headers; `user` from `X-Auth-User`, request id as
+`uuid`). See `docs/identity-contract.md`.
 
 `Authorization` passes through untouched — it is not part of the contract
 (upstreams like Open WebUI use it internally). Downstream apps (chorus,
 docint, Nextext) consume `X-Auth-User` fail-closed; the whole model is
-sound only because production publishes no other host ports and the
-gateway strips before injecting — which is exactly what
-`scripts/smoke.sh`'s spoof test proves (forged `X-Auth-User: mallory`
-must never reach the upstream). Any Caddyfile change should keep that
-test passing.
+sound only because production publishes no other host ports, the gateway
+strips before injecting, and each app checks its edge secret — the first
+two are what `scripts/smoke.sh`'s spoof test proves (forged
+`X-Auth-User: mallory` must never reach the upstream; a forged
+`X-Edge-Secret` or `X-Request-ID` must be replaced). Any Caddyfile change
+should keep that test passing.
 
 ### Caddyfile ordering traps (why the file is shaped the way it is)
 
@@ -172,8 +186,11 @@ These were all hit in anger; don't "simplify" them away:
   for compose-created containers, so the viewer would render "no code
   pending" forever.
 - Access control lives in `authelia/configuration.yml`: `default_policy:
-  deny`, with a domain-wide catch-all rule granting `one_factor` — so in
-  practice every provisioned account reaches every routed app. The
+  deny`, with a domain-wide catch-all rule granting `EDGE_AUTH_POLICY`
+  (default `two_factor`; `make up-dev` sets `one_factor`, which the smoke
+  test's password-only login relies on) — so in practice every provisioned
+  account reaches every routed app. `/auth-code` is matched first and
+  stays `one_factor`: TOTP enrolment needs the code it shows. The
   exception is `/grafana`, admins-group only via a match-then-explicit-deny
   rule pair placed ahead of the catch-all (order matters, first match
   wins; without the explicit deny a non-admin falls through and is let

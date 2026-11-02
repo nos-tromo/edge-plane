@@ -78,6 +78,15 @@ services:
       # Optional support contact rendered on the portal's "report a problem"
       # tile (hidden when unset). Never commit a real value.
       EDGE_SUPPORT_CONTACT: ${EDGE_SUPPORT_CONTACT:-}
+      # Per-app edge secrets, sent as X-Edge-Secret to each app upstream
+      # (caddy/Caddyfile, app_upstream). Each value must equal the one in that
+      # app's own .env; generate with `make secret`. Empty sends an empty
+      # header, which an app without its own secret ignores.
+      CHORUS_EDGE_SECRET: ${CHORUS_EDGE_SECRET:-}
+      DOCINT_EDGE_SECRET: ${DOCINT_EDGE_SECRET:-}
+      NEXTEXT_EDGE_SECRET: ${NEXTEXT_EDGE_SECRET:-}
+      TRANSLATOR_EDGE_SECRET: ${TRANSLATOR_EDGE_SECRET:-}
+      OPEN_WEBUI_EDGE_SECRET: ${OPEN_WEBUI_EDGE_SECRET:-}
     ports:
       - "443:443"
       - "80:80"
@@ -136,6 +145,9 @@ services:
       EDGE_SESSION_EXPIRATION: ${EDGE_SESSION_EXPIRATION:-}
       EDGE_SESSION_INACTIVITY: ${EDGE_SESSION_INACTIVITY:-}
       EDGE_SESSION_REMEMBER_ME: ${EDGE_SESSION_REMEMBER_ME:-}
+      # Policy for every protected route (two_factor | one_factor; default
+      # two_factor). The one-time-code viewer always stays one_factor.
+      EDGE_AUTH_POLICY: ${EDGE_AUTH_POLICY:-}
       AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET:?set in .env}
       AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY:?set in .env}
       AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET:?set in .env}
