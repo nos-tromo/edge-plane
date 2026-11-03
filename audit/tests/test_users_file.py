@@ -423,6 +423,30 @@ class WatcherTest(unittest.TestCase):
         self.assertEqual(watcher.poll(), 0)
         self.assertEqual(len(self.events()), 4)
 
+    def test_an_edit_that_hides_its_metadata_is_still_recorded(self) -> None:
+        """Same size, same inode, mtime set back: the content decides, not the metadata."""
+        self.write(TEMPLATE)
+        watcher = self.watcher()
+        watcher.poll()
+        before = os.stat(self.path)
+        edited = TEMPLATE.replace("      - admins\n", "      - audits\n")
+        self.assertEqual(len(edited), len(TEMPLATE))
+        self.path.write_text(edited, encoding="utf-8")  # in place: same inode
+        os.utime(self.path, ns=(before.st_atime_ns, before.st_mtime_ns))
+        self.assertEqual(os.stat(self.path).st_ino, before.st_ino)
+        self.assertEqual(watcher.poll(), 1)
+        self.assertEqual(
+            [(e["operation"], e["target"]["ids"], e.get("criteria")) for e in self.events()[4:]],
+            [
+                (
+                    "account.groups",
+                    ["alice.example"],
+                    {"groups": ["audits", "users"], "added": ["audits"], "removed": ["admins"]},
+                )
+            ],
+        )
+        self.assert_intact_and_clean()
+
     def test_unreadable_version_is_recorded_once(self) -> None:
         """Seen twice in a row: one coarse event; readable again: itemised."""
         self.write(TEMPLATE)

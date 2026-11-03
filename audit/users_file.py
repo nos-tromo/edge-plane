@@ -231,7 +231,8 @@ def _scalar(text: str, number: int) -> object:
     if text.startswith("["):
         inner = text[1:-1].strip()
         if not inner:
-            return []
+            empty_list: list[object] = []
+            return empty_list
         items: list[object] = []
         start, index = 0, 0
         while index <= len(inner):
@@ -247,7 +248,8 @@ def _scalar(text: str, number: int) -> object:
             index += 1
         return items
     if text == "{}":
-        return {}
+        empty_map: dict[str, object] = {}
+        return empty_map
     if text[:1] in _UNSUPPORTED_START or text.startswith("{"):
         raise UsersFileError(f"line {number}: unsupported YAML (anchor, alias, tag, block scalar or flow mapping)")
     lowered = text.lower()
@@ -489,7 +491,7 @@ def accounts_from(document: object) -> dict[str, Account]:
             raise UsersFileError("an account is not a mapping")
         groups = details.get("groups")
         if groups is None:
-            groups = []
+            groups = list[str]()
         if not isinstance(groups, list) or not all(isinstance(group, str) for group in groups):
             raise UsersFileError("an account's groups are not a list of names")
         disabled = details.get("disabled")
@@ -637,7 +639,6 @@ class UsersFileWatcher:
         self._path = path
         self._state_dir = state_dir
         self._state = state
-        self._signature: tuple[int, int, int] | None = None
         self._pending: str | None = None
         self._problem: str | None = None
 
@@ -663,18 +664,17 @@ class UsersFileWatcher:
             AuditWriteError: If an event could not be written.
             OSError: If the state could not be saved.
         """
+        # The whole file every round, compared by digest: it is small, and no
+        # metadata shortcut (size, mtime) can be trusted, since mtime can be
+        # set back after an edit that keeps the size.
         try:
-            info = os.stat(self._path)
-            signature = (info.st_ino, info.st_size, info.st_mtime_ns)
-            if signature == self._signature:
-                return 0
             data = self._path.read_bytes()
         except OSError as exc:
             self._report(f"users file not readable ({exc.strerror or type(exc).__name__})")
             return None
         digest = hashlib.sha256(data).hexdigest()
         if digest == self._state.file_sha256:
-            self._signature, self._pending = signature, None
+            self._pending = None
             self._report(None)
             return 0
         try:
@@ -692,7 +692,6 @@ class UsersFileWatcher:
             written = len(changes)
         self._state = UsersState(file_sha256=digest, accounts=accounts, unparsed_sha256=None)
         save_users_state(self._state_dir, self._state)
-        self._signature = signature
         if written:
             LOG.info("users file: %d events recorded", written)
         return written
