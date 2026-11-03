@@ -25,7 +25,8 @@ never reachable from `edge-net`.
 
 All application traffic flows through each app's own frontend nginx,
 reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
-`nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`).
+`nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
+`grafana-audit`).
 `edge-net` is the federation's third external network seam, alongside
 `inference-net` and `data-net`; `make network` creates it.
 
@@ -92,9 +93,10 @@ part of the contract. `scripts/smoke.sh` proves the strip: a forged
 `X-Auth-User` must never reach an upstream. Logins need a password and a
 TOTP code by default.
 
-Grafana, on `edge-net` only, accepts those headers without a secret, so
-adding a member to `edge-net` remains an access-control decision. Full contract, plus the admins-group `/grafana`
-gate: [docs/identity-contract.md](docs/identity-contract.md).
+obs-plane's two Grafanas get secrets of their own, checked by a guard in
+front of each; the audit-trail viewer refuses every request without its
+secret. Full contract, plus the admins-group `/grafana` gate:
+[docs/identity-contract.md](docs/identity-contract.md).
 
 ## Container hardening
 

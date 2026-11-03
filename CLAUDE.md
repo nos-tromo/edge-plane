@@ -124,7 +124,9 @@ Every request through the gateway follows strip → auth → inject:
    Keep the value quoted (`"{$CHORUS_EDGE_SECRET}"`) so an unset secret
    becomes an empty header instead of a parse error; snippet arguments
    (`{args[0]}`) are not a substitute — an empty one leaves the literal
-   placeholder in the header. Grafana gets neither header.
+   placeholder in the header. obs-plane's two Grafanas get the same pair
+   (`GRAFANA_EDGE_SECRET`, `AUDIT_EDGE_SECRET`), checked by a guard in
+   front of each; the audit viewer's guard refuses requests without it.
 
 The `access_log` snippet writes one filtered JSON line per request (no
 query string, no headers; `user` from `X-Auth-User`, request id as

@@ -155,20 +155,28 @@ https://{$EDGE_HOST}:443 {
 		# destination: the :8443 site gates every request.
 		redir https://{$EDGE_HOST}:8443
 	}
+	# obs-plane's two Grafanas share edge-net with every app frontend, so a
+	# guard in front of each checks its own edge secret like the apps do.
 	@grafana path /grafana /grafana/*
 	handle @grafana {
 		import authed
-		reverse_proxy grafana:3000
+		reverse_proxy grafana:3000 {
+			header_up X-Edge-Secret "{$GRAFANA_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
 	}
 	# Audit-trail viewer (obs-plane's grafana-audit): the `audit` group only
-	# (authelia/configuration.yml), deliberately not `admins`. Like Grafana it
-	# gets no edge secret: it cannot check one and is reachable on edge-net
-	# only. Requests here are themselves in the access log, i.e. reading the
-	# audit trail is audited.
+	# (authelia/configuration.yml), deliberately not `admins`. Its guard
+	# refuses every request without AUDIT_EDGE_SECRET, so this route answers
+	# 403 until both .env files carry the same value. Requests here are
+	# themselves in the access log, i.e. reading the audit trail is audited.
 	@audit path /audit /audit/*
 	handle @audit {
 		import authed
-		reverse_proxy grafana-audit:3000
+		reverse_proxy grafana-audit:3000 {
+			header_up X-Edge-Secret "{$AUDIT_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
 	}
 
 	# One-time-code viewer (design doc §2): authed users read the code

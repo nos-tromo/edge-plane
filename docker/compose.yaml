@@ -24,8 +24,8 @@ name: edge-plane
 # cannot resolve them. Exempt every alias this gateway proxies to (plus
 # whoami, the dev-only echo upstream).
 x-no-proxy-env: &no-proxy-env
-  NO_PROXY: "authelia,chorus-frontend,docint-frontend,nextext-frontend,translator-frontend,open-webui,grafana,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
-  no_proxy: "authelia,chorus-frontend,docint-frontend,nextext-frontend,translator-frontend,open-webui,grafana,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
+  NO_PROXY: "authelia,chorus-frontend,docint-frontend,nextext-frontend,translator-frontend,open-webui,grafana,grafana-audit,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
+  no_proxy: "authelia,chorus-frontend,docint-frontend,nextext-frontend,translator-frontend,open-webui,grafana,grafana-audit,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
 
 x-logging: &default-logging
   driver: "local"
@@ -78,15 +78,19 @@ services:
       # Optional support contact rendered on the portal's "report a problem"
       # tile (hidden when unset). Never commit a real value.
       EDGE_SUPPORT_CONTACT: ${EDGE_SUPPORT_CONTACT:-}
-      # Per-app edge secrets, sent as X-Edge-Secret to each app upstream
-      # (caddy/Caddyfile, app_upstream). Each value must equal the one in that
-      # app's own .env; generate with `make secret`. Empty sends an empty
-      # header, which an app without its own secret ignores.
+      # Per-upstream edge secrets, sent as X-Edge-Secret (the header_up
+      # lines in caddy/Caddyfile). Each value must equal the one in the
+      # receiving repo's own .env (obs-plane's for the two Grafana ones);
+      # generate with `make secret`. Empty sends an empty header, which an
+      # upstream without its own secret ignores; obs-plane's audit viewer
+      # requires its secret and refuses every request without it.
       CHORUS_EDGE_SECRET: ${CHORUS_EDGE_SECRET:-}
       DOCINT_EDGE_SECRET: ${DOCINT_EDGE_SECRET:-}
       NEXTEXT_EDGE_SECRET: ${NEXTEXT_EDGE_SECRET:-}
       TRANSLATOR_EDGE_SECRET: ${TRANSLATOR_EDGE_SECRET:-}
       OPEN_WEBUI_EDGE_SECRET: ${OPEN_WEBUI_EDGE_SECRET:-}
+      GRAFANA_EDGE_SECRET: ${GRAFANA_EDGE_SECRET:-}
+      AUDIT_EDGE_SECRET: ${AUDIT_EDGE_SECRET:-}
     ports:
       - "443:443"
       - "80:80"
