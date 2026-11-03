@@ -9,6 +9,8 @@
 #      NEVER reach the upstream
 #   4b. the upstream receives the gateway's X-Edge-Secret and a gateway-
 #      generated X-Request-ID, never the client-forged ones
+#   4c. /grafana and /audit refuse a user outside their group, in any
+#      letter case
 #   5. logout destroys the session server-side - replaying the pre-logout
 #      cookie is rejected
 set -euo pipefail
@@ -138,6 +140,15 @@ tokens_body=$(run_curl "tokens.css content check" "$BASE/tokens.css")
 grep -q -- "--color-background" <<<"$tokens_body" \
   || fail "/tokens.css did not serve the expected design tokens"
 echo "ok: vendored tokens.css served unauthenticated"
+
+# Group gates: the smoke user is in neither `admins` nor `audit`, so both
+# operator-only routes refuse it, in any letter case (Caddy's path matcher
+# is case-insensitive). A 502 here would mean the gate let it through.
+for gated in /grafana/ /Grafana/ /audit/ /AUDIT/x; do
+  gate_code=$(run_curl "group-gated $gated request" -b "$JAR" -o /dev/null -w '%{http_code}' "$BASE$gated")
+  [[ "$gate_code" == "403" ]] || fail "expected 403 for a non-member at $gated, got: $gate_code"
+done
+echo "ok: /grafana and /audit refuse non-members in any letter case"
 
 # Code-viewer page: auth-gated, and no path under it serves the raw
 # notification file (the rewrite pins everything to the template page).

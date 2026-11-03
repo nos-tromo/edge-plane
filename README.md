@@ -25,7 +25,8 @@ never reachable from `edge-net`.
 
 All application traffic flows through each app's own frontend nginx,
 reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
-`nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`).
+`nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
+`grafana-audit`).
 `edge-net` is the federation's third external network seam, alongside
 `inference-net` and `data-net`; `make network` creates it.
 
@@ -43,6 +44,7 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/translator/*` | `translator-frontend:8080` | forward_auth | stateless; `X-Auth-User` is used for display only |
 | `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
+| `/audit/*` | `grafana-audit:3000` | forward_auth | obs-plane's audit-trail viewer; **`audit` group only** (not `admins`) — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
 | `/tokens.css` | — (static, `landing/`) | **none** | the vendored `@infra/ui` design tokens both portal pages link. Deliberately unauthenticated (plain CSS, nothing sensitive) and served from an absolute path so `/auth-code/*` — whose handle rewrites every path to `index.html` — can link it too. See [docs/portal-tokens.md](docs/portal-tokens.md) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
@@ -91,9 +93,10 @@ part of the contract. `scripts/smoke.sh` proves the strip: a forged
 `X-Auth-User` must never reach an upstream. Logins need a password and a
 TOTP code by default.
 
-Grafana, on `edge-net` only, accepts those headers without a secret, so
-adding a member to `edge-net` remains an access-control decision. Full contract, plus the admins-group `/grafana`
-gate: [docs/identity-contract.md](docs/identity-contract.md).
+obs-plane's two Grafanas get secrets of their own, checked by a guard in
+front of each; the audit-trail viewer refuses every request without its
+secret. Full contract, plus the admins-group `/grafana` gate:
+[docs/identity-contract.md](docs/identity-contract.md).
 
 ## Container hardening
 

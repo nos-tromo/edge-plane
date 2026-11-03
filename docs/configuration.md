@@ -31,6 +31,7 @@ the one bind mount that is deliberately writable — see
 | `EDGE_SESSION_REMEMBER_ME` | `2M` | Session lifetime when "remember me" is ticked |
 | `EDGE_AUTH_POLICY` | `two_factor` (`make up-dev`: `one_factor`) | Authelia policy for every protected route: `two_factor` (password + TOTP) or `one_factor`. TOTP is admin-provisioned (`make totp`) — see [user-accounts.md](user-accounts.md#second-factor) |
 | `CHORUS_EDGE_SECRET`, `DOCINT_EDGE_SECRET`, `NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET` | empty | Per-app secret the gateway sends as `X-Edge-Secret`; each must equal the same variable in that app's `.env`. Generate with `make secret` — see [identity-contract.md](identity-contract.md#edge-secret) |
+| `GRAFANA_EDGE_SECRET`, `AUDIT_EDGE_SECRET` | empty | The same for obs-plane's Grafana (`/grafana`) and audit-trail viewer (`/audit`); each must equal the same variable in obs-plane's `.env`. `/audit` answers 403 until `AUDIT_EDGE_SECRET` is set on both sides |
 
 The `EDGE_SESSION_*` values use Authelia's duration syntax (`30m`, `12h`,
 `1w`, `2M`, `1y`) and are rendered into `authelia/configuration.yml` by

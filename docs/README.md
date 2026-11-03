@@ -13,7 +13,7 @@ would otherwise bury it.
 | [configuration.md](configuration.md) | Every environment variable with its default, the UI-language switch, corporate-proxy bypass |
 | [user-accounts.md](user-accounts.md) | Provisioning users, the first-start storage key and how to recover from rotating it, self-service password change, admin-mediated resets, the second factor (TOTP), session lifetimes |
 | [tls-runbook.md](tls-runbook.md) | The two certificate sources — Caddy's internal CA and an org-issued PEM pair — client trust distribution, the `EDGE_HOST` caveat, recovery after `make nuke` |
-| [identity-contract.md](identity-contract.md) | The strip → authenticate → inject header flow, `X-Auth-User`/`Email`/`Groups`/`Name`, the per-app edge secret, the request id and access log, the `Authorization` pass-through rule, and the admins-group `/grafana` gate |
+| [identity-contract.md](identity-contract.md) | The strip → authenticate → inject header flow, `X-Auth-User`/`Email`/`Groups`/`Name`, the per-upstream edge secret, the request id and access log, the `Authorization` pass-through rule, and the admins-group `/grafana` gate |
 | [images.md](images.md) | Pinned image digests (the source of truth CI and compose must match) and what the airgap bundle contains |
 | [portal-tokens.md](portal-tokens.md) | The vendored `@infra/ui` design tokens behind the static portal pages: re-vendoring procedure and the CI checks that guard it |
 | [decisions/](decisions/) | Architecture decision records — the choices that would be expensive to reverse, and why |

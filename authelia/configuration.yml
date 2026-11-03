@@ -48,6 +48,18 @@ access_control:
       resources:
         - '(?i)^/grafana(/|$)'
       policy: deny
+    # The audit-trail viewer: members of `audit` only, the same
+    # match-then-deny pair. `admins` is deliberately not enough: operating
+    # the stack and reviewing who accessed which data are separate duties.
+    - domain: '{{ env "EDGE_HOST" }}'
+      resources:
+        - '(?i)^/audit(/|$)'
+      subject: 'group:audit'
+      policy: '{{ env "EDGE_AUTH_POLICY" | default "two_factor" }}'
+    - domain: '{{ env "EDGE_HOST" }}'
+      resources:
+        - '(?i)^/audit(/|$)'
+      policy: deny
     # Everything else: password plus a second factor (TOTP; works without
     # network access). EDGE_AUTH_POLICY=one_factor is the escape hatch for
     # dev hosts.

@@ -39,8 +39,9 @@ issuer. Nothing issued it in production before edge-plane. The flow:
    It is not an identity key: apps must keep keying on `X-Auth-User`.
    The portal (`landing/index.html`) uses it to greet the signed-in user
    by name, falling back to `X-Auth-User` when absent.
-4. On every proxied request to an app, Caddy also sets **`X-Edge-Secret`**
-   to that app's own secret and **`X-Request-ID`** to the request's id —
+4. On every proxied request to an app or to one of obs-plane's two
+   Grafanas, Caddy also sets **`X-Edge-Secret`** to that upstream's own
+   secret and **`X-Request-ID`** to the request's id —
    see [Edge secret](#edge-secret) and
    [Request id and access log](#request-id-and-access-log). Client-supplied
    values of both are replaced.
@@ -49,8 +50,9 @@ Production publishes no host ports anywhere else in the federation, and
 the gateway strips the identity headers before setting its own values —
 verified by `scripts/smoke.sh`'s spoof test. That alone does not make the
 headers trustworthy, though: the apps' backends also sit on the shared
-`inference-net` and `data-net` networks, where any container could call
-them directly with forged headers. The edge secret closes that gap.
+`inference-net` and `data-net` networks, and the Grafanas share `edge-net`
+with every app frontend, so any container there could call them directly
+with forged headers. The edge secret closes that gap.
 
 **`Authorization` pass-through rule**: the gateway owns `X-Auth-User` /
 `Remote-*` and strips them from clients, but passes `Authorization`
@@ -78,8 +80,18 @@ passes request headers through to its backend, and the backend:
   warning that identity headers are trusted from any caller.
 
 Per-app values mean a compromised app cannot impersonate users towards
-another app. Grafana gets no secret: it cannot check one, and it is
-reachable on `edge-net` only.
+another app.
+
+Grafana cannot check a secret itself either, and obs-plane's two Grafanas
+are reachable from every app frontend on `edge-net`. obs-plane therefore
+puts a guard in front of each, in the same network namespace, with a
+secret of its own:
+
+- `GRAFANA_EDGE_SECRET` (`/grafana`) works like the apps' secrets: unset,
+  the headers are trusted as before.
+- `AUDIT_EDGE_SECRET` (`/audit`) is required. Without it, or with a
+  mismatch, the audit-trail viewer refuses every request, so `/audit`
+  answers 403 until both `.env` files carry the same value.
 
 Open WebUI cannot check a secret itself either, and it does sit on
 `inference-net`. open-webui-service therefore puts a small nginx in front
@@ -92,7 +104,8 @@ to Nextext authenticates with a service token instead (Nextext's
 fixed service principal and cannot carry a user's identity.
 
 **Setting up or rotating.** Generate each value with `make secret`, put
-it into edge-plane's `.env` and the app's `.env`, then recreate both
+it into edge-plane's `.env` and the receiving repo's `.env` (the app's, or
+obs-plane's for the Grafanas), then recreate both
 (`make up` in each; a plain restart keeps the old value). Order matters
 only when an app starts enforcing for the first time: the gateway has to
 send the secret before the app requires it, otherwise every request to
@@ -150,6 +163,14 @@ it. Without the explicit `deny` immediately behind it, a non-admin would
 fall through to the catch-all rule and be let in. Collapsing
 the pair into one rule, or reordering it, silently opens Grafana to every
 account.
+
+**`/audit` is the same construct for the group `audit`**: the audit-trail
+viewer (obs-plane's `grafana-audit`) is open to its members only. `admins`
+is deliberately not enough: operating the stack and reviewing who accessed
+which data are separate duties, so give the `audit` group to the people
+doing the latter, and to admins only by explicit decision. Reading the trail
+is itself recorded, since every request to `/audit/` is in the gateway's
+access log, which obs-plane routes into the audit lane.
 
 Group membership is set per user in `authelia/users.yml`, the same place
 that feeds `X-Auth-Groups` above.
