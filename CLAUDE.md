@@ -17,12 +17,14 @@ For any non-trivial change (>1 file or any root-cause fix), present a plan and w
 
 ## What this repo is
 
-The federation's edge gateway — pure infra, no application source. Two
+The federation's edge gateway — pure infra, no application source. Three
 pulled, digest-pinned images: **Caddy** (TLS on `:443` + `:80` redirect,
 path routing, `forward_auth`, identity-header injection; dedicated
-`:8443` site for Open WebUI) and **Authelia** (file-backed users, SQLite
-state, filesystem notifier — airgap-clean, no SMTP/egress). These are the
-only published host ports in the whole production federation.
+`:8443` site for Open WebUI), **Authelia** (file-backed users, SQLite
+state, filesystem notifier — airgap-clean, no SMTP/egress), and
+**python** for `auth-audit`, which runs one stdlib script mounted from
+`audit/` (login attempts and account changes as audit events). Caddy's are
+the only published host ports in the whole production federation.
 
 `README.md` is the entry point — what the gateway is, the routing table,
 and a quickstart. The operator runbooks live in `docs/`, indexed by
@@ -30,7 +32,8 @@ and a quickstart. The operator runbooks live in `docs/`, indexed by
 `docs/user-accounts.md` (provisioning, first-start secrets, sessions),
 `docs/tls-runbook.md` (cert sources, client trust, `EDGE_HOST` rules),
 `docs/identity-contract.md` (the trusted-header contract and the
-admins-group `/grafana` gate), `docs/portal-tokens.md` (the vendored
+admins-group `/grafana` gate), `docs/audit.md` (the audit events
+`auth-audit` writes), `docs/portal-tokens.md` (the vendored
 design tokens and their CI checks). Architecture decisions:
 `docs/decisions/`. Design rationale:
 `docs/2026-07-23-edge-plane-design.md` (note: its Open WebUI sub-path
@@ -41,21 +44,21 @@ match.
 
 ## Commands
 
-There is no build and no test suite in the usual sense — the "tests" are
-config validation and an end-to-end smoke script. Bespoke Makefile
-(data-plane/obs-plane pattern), not `common.mk`; no `make verify`, no
-`bundle-dev`.
+There is no build. The tests are config validation, an end-to-end smoke
+script, and a stdlib `unittest` suite for `audit/` (`auth-audit`). Bespoke
+Makefile (data-plane/obs-plane pattern), not `common.mk`; no `make verify`,
+no `bundle-dev`.
 
 ```bash
 make up             # production shape (:443/:80/:8443 only); requires .env + authelia/users.yml
 make up-dev         # + whoami header-echo upstream and its /whoami route
 make smoke          # end-to-end auth/header contract test — needs a running `make up-dev`
-make health         # caddy + authelia readiness
+make health         # caddy + authelia readiness, auth-audit export
 make logs S=caddy   # tail one service (omit S= for all)
 make down           # stop, volumes preserved
 make user           # hash a password for authelia/users.yml (argon2)
 make secret         # generate a random secret for .env
-make totp U=<user>  # provision a user's TOTP (prints the otpauth URI); FORCE=1 replaces
+make totp U=<user>  # provision a user's TOTP (prints the otpauth URI); FORCE=1 replaces; needs auth-audit up (recorded)
 make ca-export      # write internal CA root to edge-ca-root.crt
 make bundle         # airgap tarball of the latest annotated tag
 EDGE_PLANE_VERSION_OVERRIDE=<v> make bundle   # bundle the working tree instead
@@ -76,12 +79,16 @@ docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddy
   caddy validate --config /etc/caddy/Caddyfile                                  # Caddyfile validation
 ./scripts/check-tokens-vendor.sh                                                # landing/tokens.css vendoring header
 ./scripts/check-no-literal-dimensions.sh                                        # portal font-size/border-radius must be tokens
-./scripts/smoke.sh                                                              # after make up-dev
+python3 -m unittest discover -s audit/tests -t audit                            # auth-audit (also run in the pinned python image)
+./scripts/smoke.sh                                                              # after make up-dev; also checks the audit export
 ```
 
 CI also runs shared infra checks (yamllint, shellcheck, and a drift-check
 of `scripts/bundle-lib.sh` against its canonical copy in
-`nos-tromo/.github` — never hand-edit that file; re-vendor it). The portal
+`nos-tromo/.github` — never hand-edit that file; re-vendor it).
+`audit/audit_event.py` and `audit/audit_runtime.py` are vendored the same
+way (byte-identical copies of the hub's `configs/audit/`, checked by its
+`validate_audit_lib.py`): never edit them, never let a formatter touch them. The portal
 similarly vendors `landing/tokens.css` from `nos-tromo/infra-ui`
 (`dist/tokens.css`); `scripts/check-tokens-vendor.sh` checks its header
 records a canonical source + pinned ref, either a commit or a release tag
@@ -178,10 +185,12 @@ These were all hit in anger; don't "simplify" them away:
   `grafana-audit`);
   this repo does not own those services. Do not route Neo4j/Qdrant/
   `vllm-router` — that is the seam violation the network design prevents.
-- Two external volumes: `edge-state` (Authelia's encrypted SQLite —
+- Three external volumes: `edge-state` (Authelia's encrypted SQLite —
   TOTP secrets, sessions) and `edge-ca` (Caddy's internal CA + private
-  key). `docker compose down -v` can't destroy them; only `make nuke`.
-  A third, `edge-notify`, is deliberately project-scoped rather than
+  key) — `docker compose down -v` can't destroy them; only `make nuke` —
+  and `edge-audit-state` (`auth-audit`'s export positions), which even
+  `make nuke` keeps so a replaced Authelia database is recorded as such.
+  A fourth, `edge-notify`, is deliberately project-scoped rather than
   external: it carries Authelia's filesystem notifications (the one-time
   codes the `/auth-code` viewer renders), which are short-lived, not
   durable identity state. Caddy gets it beside a *file* bind of
@@ -216,6 +225,16 @@ These were all hit in anger; don't "simplify" them away:
   Production ships only `caddy/conf.d/empty.caddy`; the whoami image is
   never bundled. The same class of trap is why `authcode/` is mounted as a
   single file rather than a directory (see the `edge-notify` bullet above).
+- `auth-audit` (`docs/audit.md`) has no network: it reads Authelia's
+  database (`edge-state`, read-only mount, `mode=ro` connection) and the
+  `authelia/` directory (read-only — a directory, so an editor's
+  rename-over stays visible), and writes hash-chained events to its stdout.
+  Its chains (`service: edge-plane`) all start in this container — the
+  account targets run their emitter there via `docker compose exec`
+  (`scripts/audit-admin.sh`), never in a one-off container — so obs-plane
+  binds them to the `auth-audit` compose service. The account targets
+  refuse to run while it cannot record. Never write to Authelia's
+  database from it.
 - Airgap-first: internal CA by default (no ACME/OCSP/egress), or
   org-issued PEMs via `EDGE_TLS` + `certs/` (see `docs/tls-runbook.md`).
   Never add anything that fetches at runtime. When bumping an image,
