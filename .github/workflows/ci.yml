@@ -57,6 +57,23 @@ jobs:
             docker.io/authelia/authelia:4.39.20@sha256:1b363e9279e742397966333f364e0876ae02bf5c876de73e83af6d48c57ff51b \
             authelia config validate --config /config/configuration.yml
 
+  audit-tests:
+    # auth-audit (audit/edge_audit.py) against synthetic Authelia databases
+    # built with the pinned image's schema: stdlib unittest, nothing
+    # installed. Once on the runner (with bash, for scripts/audit-admin.sh),
+    # once in the pinned python image as the container runs it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: unittest (runner python)
+        run: python3 -m unittest discover -s audit/tests -t audit -v
+      - name: unittest (pinned image, read-only, uid 65534)
+        run: |
+          docker run --rm --read-only --tmpfs /tmp --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$PWD/audit:/app:ro" \
+            docker.io/library/python:3.12.16-alpine3.24@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8 \
+            python -m unittest discover -s /app/tests -t /app
+
   smoke:
     # The real contract test: full dev stack + scripts/smoke.sh.
     runs-on: ubuntu-latest
@@ -67,13 +84,13 @@ jobs:
           cp .env.example .env
           cp authelia/users.template.yml authelia/users.yml
           make up-dev
-      - name: wait for caddy + authelia healthy
+      - name: wait for caddy, authelia and auth-audit healthy
         run: |
           ok=0
           for i in $(seq 1 60); do
-            healthy=$(docker compose --env-file .env -f docker/compose.yaml ps --format '{{.Name}} {{.Health}}' \
-              | grep -c ' healthy$' || true)
-            if [ "$healthy" -ge 2 ]; then
+            healthy=$(docker compose --env-file .env -f docker/compose.yaml ps --format '{{.Service}} {{.Health}}' \
+              | grep -cE '^(caddy|authelia|auth-audit) healthy$' || true)
+            if [ "$healthy" -ge 3 ]; then
               ok=1
               break
             fi
