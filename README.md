@@ -40,7 +40,7 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/chorus/*` | `chorus-frontend:8080` | forward_auth | SPA serves from the sub-path |
 | `/docint/*` | `docint-frontend:8080` | forward_auth | same |
 | `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
-| `/translator/*` | `translator-frontend:8080` | forward_auth | app ignores `X-Auth-User` (stateless) |
+| `/translator/*` | `translator-frontend:8080` | forward_auth | stateless; `X-Auth-User` is used for display only |
 | `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
@@ -83,12 +83,16 @@ unconditionally strips any client-supplied `X-Auth-*` and `Remote-*` header
 before routing; `forward_auth` hands the request to Authelia, which either
 redirects to the login portal or returns `Remote-User` (+ `-Email`,
 `-Groups`, `-Name`); Caddy copies those into `X-Auth-User`, `X-Auth-Email`,
-`X-Auth-Groups` and `X-Auth-Name` for the upstream. `Authorization` passes
-through untouched — it is not part of the contract. `scripts/smoke.sh`
-proves the strip: a forged `X-Auth-User` must never reach an upstream.
+`X-Auth-Groups` and `X-Auth-Name` for the upstream, plus that app's own
+`X-Edge-Secret` and an `X-Request-ID`. The apps trust `X-Auth-*` only
+with a matching secret, because their backends also sit on networks other
+containers share. `Authorization` passes through untouched — it is not
+part of the contract. `scripts/smoke.sh` proves the strip: a forged
+`X-Auth-User` must never reach an upstream. Logins need a password and a
+TOTP code by default.
 
-Members of `edge-net` accept those headers unverified, so adding one is an
-access-control decision. Full contract, plus the admins-group `/grafana`
+Grafana, on `edge-net` only, accepts those headers without a secret, so
+adding a member to `edge-net` remains an access-control decision. Full contract, plus the admins-group `/grafana`
 gate: [docs/identity-contract.md](docs/identity-contract.md).
 
 ## Container hardening
@@ -117,6 +121,7 @@ $EDITOR .env                              # set EDGE_HOST; generate real secrets
 cp authelia/users.template.yml authelia/users.yml
 make user                                 # hash a real password, paste the result into users.yml
 make up                                   # production shape — :443, :8443 (+:80 redirect) only
+make totp U=<username>                    # provision each user's TOTP second factor (login needs it)
 ```
 
 For local iteration, `make up-dev` layers `docker/compose.override.yaml`,

@@ -29,13 +29,16 @@ the one bind mount that is deliberately writable — see
 | `EDGE_SESSION_EXPIRATION` | `12h` | Absolute session lifetime — see [user-accounts.md](user-accounts.md#session-behaviour) |
 | `EDGE_SESSION_INACTIVITY` | `4h` | Idle timeout before re-login |
 | `EDGE_SESSION_REMEMBER_ME` | `2M` | Session lifetime when "remember me" is ticked |
+| `EDGE_AUTH_POLICY` | `two_factor` (`make up-dev`: `one_factor`) | Authelia policy for every protected route: `two_factor` (password + TOTP) or `one_factor`. TOTP is admin-provisioned (`make totp`) — see [user-accounts.md](user-accounts.md#second-factor) |
+| `CHORUS_EDGE_SECRET`, `DOCINT_EDGE_SECRET`, `NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET` | empty | Per-app secret the gateway sends as `X-Edge-Secret`; each must equal the same variable in that app's `.env`. Generate with `make secret` — see [identity-contract.md](identity-contract.md#edge-secret) |
 
 The `EDGE_SESSION_*` values use Authelia's duration syntax (`30m`, `12h`,
 `1w`, `2M`, `1y`) and are rendered into `authelia/configuration.yml` by
 its template filter, so the file itself stays untouched across updates.
 
 The three `AUTHELIA_*` values in `.env.example` are insecure dev/CI
-placeholders. Generate real ones with `make secret`.
+placeholders. Generate real ones with `make secret`, and the five
+`*_EDGE_SECRET` values the same way.
 
 ## UI language
 

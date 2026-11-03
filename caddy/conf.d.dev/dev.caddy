@@ -1,4 +1,8 @@
 handle /whoami/* {
 	import authed
-	reverse_proxy whoami:80
+	# Same upstream headers as an app route (see the main Caddyfile).
+	reverse_proxy whoami:80 {
+		header_up X-Edge-Secret "{$WHOAMI_EDGE_SECRET}"
+		header_up X-Request-ID {http.request.uuid}
+	}
 }

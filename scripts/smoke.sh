@@ -7,6 +7,8 @@
 #      X-Auth-Name upstream
 #   4. client-forged X-Auth-User, X-Auth-Groups, and X-Auth-Name headers
 #      NEVER reach the upstream
+#   4b. the upstream receives the gateway's X-Edge-Secret and a gateway-
+#      generated X-Request-ID, never the client-forged ones
 #   5. logout destroys the session server-side - replaying the pre-logout
 #      cookie is rejected
 set -euo pipefail
@@ -83,7 +85,8 @@ echo "ok: first-factor login"
 # values and must NOT see the forged ones.
 body=$(run_curl "authenticated whoami request" -b "$JAR" \
   -H 'X-Auth-User: mallory' -H 'X-Auth-Groups: admins' \
-  -H 'X-Auth-Name: Mallory Mallet' "$BASE/whoami/")
+  -H 'X-Auth-Name: Mallory Mallet' -H 'X-Edge-Secret: forged-edge-secret' \
+  -H 'X-Request-ID: forged-request-id' "$BASE/whoami/")
 grep -qi "^X-Auth-User: $USER_NAME" <<<"$body" \
   || fail "upstream did not receive X-Auth-User=$USER_NAME:
 $body"
@@ -100,6 +103,20 @@ $body"
 grep -qi "Mallory Mallet" <<<"$body" && fail "forged X-Auth-Name reached the upstream:
 $body"
 echo "ok: X-Auth-User + X-Auth-Groups + X-Auth-Name injected; forged headers stripped"
+
+# 4b. Edge secret and request id: the dev whoami route stands in for an app
+# upstream (caddy/conf.d.dev, value set in docker/compose.override.yaml).
+grep -qi "^X-Edge-Secret: smoke-test-edge-secret-not-for-production-000" <<<"$body" \
+  || fail "upstream did not receive the gateway's X-Edge-Secret:
+$body"
+grep -qi "forged-edge-secret" <<<"$body" && fail "forged X-Edge-Secret reached the upstream:
+$body"
+grep -qiE "^X-Request-Id: [0-9a-f-]{36}" <<<"$body" \
+  || fail "upstream did not receive a gateway-generated X-Request-ID:
+$body"
+grep -qi "forged-request-id" <<<"$body" && fail "forged X-Request-ID reached the upstream:
+$body"
+echo "ok: X-Edge-Secret + X-Request-ID set by the gateway; forged values replaced"
 
 # Portal reachable with the session, and actually the portal: the rendered
 # page must contain the app grid and the status-probe script.

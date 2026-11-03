@@ -85,6 +85,40 @@ With real data in the DB, use `authelia storage encryption change-key`
   rewrites the file to its full schema on the first self-service change, so
   a post-rollout diff looking unfamiliar is expected.
 
+## Second factor
+
+Every protected route requires a password **and** a time-based one-time
+password (TOTP) from an authenticator app (`EDGE_AUTH_POLICY`, default
+`two_factor`). TOTP works without any network access.
+
+**Second factors are provisioned by an admin, like passwords.** Users do
+not enrol a device through the portal. Enrolling, or replacing a device,
+needs an elevated session, and elevating takes the one-time verification
+code the filesystem notifier writes. If that code were readable with the
+password alone, anyone holding only the password could swap in their own
+device. That was measured on this Authelia version, with
+`identity_validation.elevated_session.require_second_factor` on. So
+`/auth-code` is behind the same `two_factor` policy as everything else,
+and only an admin creates registrations.
+
+- **Provisioning**: with the stack running, `make totp U=<username>` prints
+  an `otpauth://` URI for that user. The URI contains the secret. Hand it
+  over in person: most authenticator apps accept it pasted, or as the
+  base32 `secret=` value typed in by hand. The account's issuer is
+  `EDGE_HOST`.
+- **Before switching an existing deployment to `two_factor`**, provision
+  every user. A user without a registration cannot log in, because the
+  portal's own enrolment needs a code they can no longer read. Until then,
+  run with `EDGE_AUTH_POLICY=one_factor`. `make totp` works against a
+  running older version too.
+- **New users**: provision the password (`make user`) and the TOTP
+  (`make totp`) together.
+- **Lost device**: `make totp U=<username> FORCE=1` replaces the
+  registration. Hand over the new URI the same way.
+- **Dev**: `make up-dev` sets `EDGE_AUTH_POLICY=one_factor`, so local work
+  and the smoke test need no device. Set `EDGE_AUTH_POLICY` in `.env` to
+  override either shape.
+
 ## Session behaviour
 
 Sessions last 12 h by default (4 h inactivity timeout; "remember me"
