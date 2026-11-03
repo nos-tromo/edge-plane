@@ -3,7 +3,9 @@
 ### What this project owns:
 ###   - Caddy (TLS on :443, path routing, forward_auth, X-Auth-User injection)
 ###   - Authelia (identity; file users, SQLite on edge-state)
-###   - External volumes edge-state (Authelia state) and edge-ca (internal CA)
+###   - auth-audit (login attempts and account changes as audit events)
+###   - External volumes edge-state (Authelia state), edge-ca (internal CA)
+###     and edge-audit-state (auth-audit's export position)
 ###
 ### What it does NOT own:
 ###   - edge-net members' frontends (each app attaches its own with an alias)
@@ -166,10 +168,78 @@ services:
       - "9091"
     restart: unless-stopped
 
+  # Writes edge-plane's audit events (docs/audit.md): one `auth` event per
+  # row of Authelia's authentication log, read from edge-state through a
+  # read-only mount and a read-only SQLite connection; one `admin` event per
+  # account change in authelia/users.yml; and the `admin` events of the
+  # account targets (`make totp`), which run their emitter here with
+  # `docker compose exec`. Stdlib Python mounted read-only; nothing is
+  # installed. No network: it reads files and writes its stdout.
+  auth-audit:
+    <<: *hardened
+    image: docker.io/library/python:3.12.16-alpine3.24@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+    logging: *default-logging
+    # The image's `nobody`; auth-audit-init hands it edge-audit-state.
+    user: "65534:65534"
+    read_only: true
+    network_mode: none
+    tmpfs:
+      - /tmp:size=1m
+    entrypoint: ["python", "/app/edge_audit.py"]
+    command: ["serve"]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      AUDIT_OUTPUT: container
+      AUDIT_AUTHELIA_DB: /authelia-state/db.sqlite3
+      AUDIT_USERS_FILE: /authelia-config/users.yml
+      AUDIT_STATE_DIR: /state
+      AUDIT_POLL_INTERVAL: ${AUDIT_POLL_INTERVAL:-5}
+    volumes:
+      - ../audit:/app:ro
+      - ../VERSION:/etc/edge-plane/VERSION:ro
+      - edge-state:/authelia-state:ro
+      # The directory, not the file: an editor that saves by renaming a new
+      # file over users.yml would leave a file bind on the old one.
+      - ../authelia:/authelia-config:ro
+      - edge-audit-state:/state
+    depends_on:
+      authelia:
+        condition: service_healthy
+      auth-audit-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "/app/edge_audit.py", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # One-shot, on every `up`: a new volume belongs to root, so hand
+  # edge-audit-state to auth-audit's user before it starts. Only CAP_CHOWN.
+  auth-audit-init:
+    <<: *hardened
+    image: docker.io/library/python:3.12.16-alpine3.24@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+    logging: *default-logging
+    user: "0:0"
+    cap_add:
+      - CHOWN
+    read_only: true
+    network_mode: none
+    entrypoint: ["chown", "-R", "65534:65534", "/state"]
+    volumes:
+      - edge-audit-state:/state
+    restart: "no"
+
 volumes:
   edge-state:
     external: true
   edge-ca:
+    external: true
+  # auth-audit's export position (the last exported row). External like the
+  # other two, and kept by `make nuke`: a replaced Authelia database is then
+  # recorded as such (docs/audit.md).
+  edge-audit-state:
     external: true
   # Project-scoped, NOT external — holds only short-lived one-time codes,
   # not durable identity state.
