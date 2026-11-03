@@ -43,6 +43,7 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/translator/*` | `translator-frontend:8080` | forward_auth | stateless; `X-Auth-User` is used for display only |
 | `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
+| `/audit/*` | `grafana-audit:3000` | forward_auth | obs-plane's audit-trail viewer; **`audit` group only** (not `admins`) — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
 | `/tokens.css` | — (static, `landing/`) | **none** | the vendored `@infra/ui` design tokens both portal pages link. Deliberately unauthenticated (plain CSS, nothing sensitive) and served from an absolute path so `/auth-code/*` — whose handle rewrites every path to `index.html` — can link it too. See [docs/portal-tokens.md](docs/portal-tokens.md) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |

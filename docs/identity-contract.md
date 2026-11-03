@@ -151,6 +151,14 @@ fall through to the catch-all rule and be let in. Collapsing
 the pair into one rule, or reordering it, silently opens Grafana to every
 account.
 
+**`/audit` is the same construct for the group `audit`**: the audit-trail
+viewer (obs-plane's `grafana-audit`) is open to its members only. `admins`
+is deliberately not enough: operating the stack and reviewing who accessed
+which data are separate duties, so give the `audit` group to the people
+doing the latter, and to admins only by explicit decision. Reading the trail
+is itself recorded, since every request to `/audit/` is in the gateway's
+access log, which obs-plane routes into the audit lane.
+
 Group membership is set per user in `authelia/users.yml`, the same place
 that feeds `X-Auth-Groups` above.
 

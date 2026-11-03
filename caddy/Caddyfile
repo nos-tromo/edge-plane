@@ -160,6 +160,16 @@ https://{$EDGE_HOST}:443 {
 		import authed
 		reverse_proxy grafana:3000
 	}
+	# Audit-trail viewer (obs-plane's grafana-audit): the `audit` group only
+	# (authelia/configuration.yml), deliberately not `admins`. Like Grafana it
+	# gets no edge secret: it cannot check one and is reachable on edge-net
+	# only. Requests here are themselves in the access log, i.e. reading the
+	# audit trail is audited.
+	@audit path /audit /audit/*
+	handle @audit {
+		import authed
+		reverse_proxy grafana-audit:3000
+	}
 
 	# One-time-code viewer (design doc §2): authed users read the code
 	# Authelia "mailed" to the notify volume; the template shows it only

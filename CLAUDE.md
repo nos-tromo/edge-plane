@@ -172,7 +172,8 @@ These were all hit in anger; don't "simplify" them away:
   lives — never `inference-net`/`data-net`. Authelia is on the internal
   network only, reachable solely via Caddy. Upstreams are reached by
   `edge-net` alias (`chorus-frontend`, `docint-frontend`,
-  `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`);
+  `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
+  `grafana-audit`);
   this repo does not own those services. Do not route Neo4j/Qdrant/
   `vllm-router` — that is the seam violation the network design prevents.
 - Two external volumes: `edge-state` (Authelia's encrypted SQLite —
@@ -199,7 +200,12 @@ These were all hit in anger; don't "simplify" them away:
   (`/Grafana/` otherwise skipped the gate). The exception is `/grafana`,
   admins-group only via a match-then-explicit-deny rule pair placed ahead
   of the catch-all (order matters, first match wins; without the explicit
-  deny a non-admin falls through and is let in). The file is rendered with `X_AUTHELIA_CONFIG_FILTERS=template`,
+  deny a non-admin falls through and is let in). `/audit` (obs-plane's
+  `grafana-audit`) is the same pair for the group `audit` — not `admins`:
+  operating the stack and reviewing data access are separate duties. The
+  smoke test asserts both gates refuse a non-member in any letter case. The
+  gateway's access log (the `access_log` snippet) is routed by obs-plane into
+  that audit lane, so reading the trail is itself recorded. The file is rendered with `X_AUTHELIA_CONFIG_FILTERS=template`,
   which is what lets those rules read `EDGE_HOST` from the environment.
 - Dev vs prod divergence is a whole-directory swap:
   `compose.override.yaml` replaces the `caddy/conf.d` mount with

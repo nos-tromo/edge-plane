@@ -42,7 +42,11 @@ With real data in the DB, use `authelia storage encryption change-key`
 ## User accounts
 
 - **Provisioning** is operator-side: `make user` hashes a password; add the
-  entry to `authelia/users.yml` (see `authelia/users.template.yml`).
+  entry to `authelia/users.yml` (see `authelia/users.template.yml`). Two
+  groups open operator-only routes: `admins` (Grafana, `/grafana/`) and
+  `audit` (the audit-trail viewer, `/audit/`). They are separate on purpose,
+  so membership in one does not imply the other — see
+  [identity-contract.md](identity-contract.md#access-control-the-admins-group-grafana-gate).
   `authentication_backend.file.watch: true` re-reads the file on change, so
   admin edits (new users, manual hash replacement) are picked up without an
   `authelia` restart — configured for this and verified to apply on restart;
