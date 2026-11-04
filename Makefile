@@ -1,7 +1,8 @@
 # edge-plane operator targets.
 #
 # Bespoke Makefile (data-plane/obs-plane pattern), NOT make/common.mk:
-# edge-plane pulls rather than builds, has no Python, and adds
+# edge-plane pulls rather than builds (its one Python script, the auth-audit
+# exporter, runs as-is on a pulled python image) and adds
 # user/ca-export/smoke targets common.mk does not model. It adopts the
 # shared airgap bundle library (scripts/bundle-lib.sh, CI drift-checked)
 # via scripts/bundle_images.sh.
@@ -12,7 +13,10 @@ SHELL := /usr/bin/env bash
 EDGE_NET ?= $(or $(strip $(shell test -f .env && grep -E '^EDGE_NET=' .env | cut -d= -f2)),edge-net)
 
 # External named volumes this project owns. Keep in sync with docker/compose.yaml.
+# `make nuke` destroys VOLUMES only: auth-audit keeps its export position, so a
+# replaced Authelia database is recorded in the audit trail (docs/audit.md).
 VOLUMES := edge-state edge-ca
+AUDIT_VOLUMES := edge-audit-state
 
 COMPOSE     := docker compose --env-file .env -f docker/compose.yaml
 COMPOSE_DEV := docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml
@@ -32,15 +36,16 @@ help:
 	@echo "  make stop       stop containers without removing them"
 	@echo "  make down       stop + remove containers (volumes preserved)"
 	@echo "  make restart    down + up"
-	@echo "  make nuke       DESTROY auth state + CA volumes (interactive)"
+	@echo "  make nuke       DESTROY auth state + CA volumes (interactive; not the audit export position)"
 	@echo
 	@echo "Operations:"
 	@echo "  make ps         service status"
-	@echo "  make health     caddy + authelia readiness"
+	@echo "  make health     caddy + authelia readiness, auth-audit export"
 	@echo "  make logs S=caddy   tail logs for one service"
 	@echo "  make user       hash a password for authelia/users.yml"
 	@echo "  make secret     generate a random secret for .env"
-	@echo "  make totp U=<user> [FORCE=1]  provision a user's TOTP second factor (prints the otpauth URI)"
+	@echo "  make totp U=<user> [FORCE=1]  provision a user's TOTP second factor (prints the otpauth URI;"
+	@echo "                 needs the running stack, recorded in the audit trail)"
 	@echo "  make ca-export  write the internal CA root to edge-ca-root.crt"
 	@echo "  make smoke      end-to-end auth/header checks (needs up-dev)"
 
@@ -49,7 +54,7 @@ network:
 	  || (echo ">> creating external network $(EDGE_NET)" && docker network create $(EDGE_NET))
 
 volumes:
-	@for v in $(VOLUMES); do \
+	@for v in $(VOLUMES) $(AUDIT_VOLUMES); do \
 	  docker volume inspect $$v >/dev/null 2>&1 \
 	    || (echo ">> creating external volume $$v" && docker volume create $$v >/dev/null); \
 	done
@@ -79,6 +84,7 @@ restart: down up
 nuke:
 	@echo "This will DESTROY all edge-plane volumes (auth DB — TOTP secrets, user preferences; internal CA):"
 	@for v in $(VOLUMES); do echo "  - $$v"; done
+	@echo "auth-audit's export position is kept: $(AUDIT_VOLUMES)"
 	@read -p "Type 'nuke' to confirm: " confirm && [ "$$confirm" = "nuke" ] \
 	  || (echo "aborted"; exit 1)
 	$(COMPOSE) down --remove-orphans
@@ -94,6 +100,7 @@ health:
 	@echo
 	@$(COMPOSE) exec -T caddy wget -qO- http://127.0.0.1:2019/config/ >/dev/null && echo "caddy: ready"
 	@$(COMPOSE) exec -T caddy wget -qO- http://authelia:9091/auth/api/health >/dev/null && echo "authelia: ready"
+	@$(COMPOSE) exec -T auth-audit python /app/edge_audit.py health && echo "auth-audit: exporting the authentication log"
 
 logs:
 ifndef S
@@ -113,10 +120,13 @@ secret:
 # Second factors are provisioned by an admin, never enrolled through the
 # portal (docs/user-accounts.md#second-factor). Prints the otpauth:// URI,
 # which contains the secret: hand it to the user in person. FORCE=1 replaces
-# an existing registration (lost device). Needs the stack running.
+# an existing registration (lost device). Needs the stack running: the change
+# is recorded as an admin event by auth-audit, and refused when it cannot be
+# (scripts/audit-admin.sh, docs/audit.md).
 totp:
 	@test -n "$(U)" || { echo "usage: make totp U=<username> [FORCE=1]"; exit 1; }
-	$(COMPOSE) exec authelia sh -c 'authelia storage user totp generate "$$1" --issuer "$$EDGE_HOST" --config /config/configuration.yml $(if $(FORCE),--force,)' _ $(U)
+	@COMPOSE='$(COMPOSE)' ./scripts/audit-admin.sh account.totp '$(U)' force=$(if $(FORCE),true,false) -- \
+	  $(COMPOSE) exec authelia sh -c 'authelia storage user totp generate "$$1" --issuer "$$EDGE_HOST" --config /config/configuration.yml $(if $(FORCE),--force,)' _ '$(U)'
 
 ca-export:
 	@$(COMPOSE) exec -T caddy cat /data/caddy/pki/authorities/local/root.crt > edge-ca-root.crt

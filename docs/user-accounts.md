@@ -55,7 +55,22 @@ With real data in the DB, use `authelia storage encryption change-key`
   within ~15 seconds (the bind-mounted filesystem may not propagate the
   change-notify events Authelia's watcher relies on) — a restart always
   picks it up immediately, so treat `watch: true` as a same-host / Linux
-  convenience, not something to depend on across every environment.
+  convenience, not something to depend on across every environment. An
+  editor that saves by renaming a new file over `users.yml` (as many do)
+  also leaves Authelia's single-file bind on the old file: on Docker
+  Desktop for Mac, Authelia then read "Stale file handle" until its
+  container restarted (verified). Restart `authelia` after editing.
+- **Every account change is recorded** in the audit trail: `auth-audit`
+  compares each version of `users.yml` with the previous one and writes one
+  event per created or removed account, group change, password change and
+  disabled flag — never a hash, e-mail address or display name. The events
+  carry no operator identity: a changed file does not say who changed it.
+  See [audit.md](audit.md#accounts-passwords-and-groups-autheliausersyml).
+- **Removing access**: delete the account from `users.yml`. Do not rely on
+  `disabled: true`: on this Authelia version, its rewrite of the file after
+  any user's self-service password change writes `disabled: false` for every
+  account, and the account can log in again after the next restart
+  (verified). The audit trail records that flip as `account.enable`.
 - **Password change** is self-service and verified end-to-end: the portal's
   inline *Change password* form (current + new password) drives Authelia's
   session-elevation API directly — no navigation to Authelia's own settings
@@ -81,7 +96,8 @@ With real data in the DB, use `authelia storage encryption change-key`
 - **Password reset** ("forgotten password") is admin-mediated by design: the
   filesystem notifier means Authelia's built-in reset flow cannot reach
   users, so it is disabled (`password_reset.disable: true`). To reset,
-  run `make user` and replace the user's hash in `authelia/users.yml`.
+  run `make user` and replace the user's hash in `authelia/users.yml`; the
+  audit trail records it as `account.password`, like a self-service change.
 - **Back up `authelia/users.yml`**: it is gitignored and lives outside the
   `edge-state`/`edge-ca` volumes, so with self-service password change it is
   now the *only* copy of user-chosen credentials — restoring it from
@@ -109,12 +125,14 @@ and only an admin creates registrations.
   an `otpauth://` URI for that user. The URI contains the secret. Hand it
   over in person: most authenticator apps accept it pasted, or as the
   base32 `secret=` value typed in by hand. The account's issuer is
-  `EDGE_HOST`.
+  `EDGE_HOST`. The change is recorded in the audit trail as
+  `account.totp`, with the operator (the sudo user, else the login user) —
+  never the URI or the secret. `make totp` refuses to change anything while
+  `auth-audit` is not running ([audit.md](audit.md#second-factors-make-totp)).
 - **Before switching an existing deployment to `two_factor`**, provision
   every user. A user without a registration cannot log in, because the
   portal's own enrolment needs a code they can no longer read. Until then,
-  run with `EDGE_AUTH_POLICY=one_factor`. `make totp` works against a
-  running older version too.
+  run with `EDGE_AUTH_POLICY=one_factor`.
 - **New users**: provision the password (`make user`) and the TOTP
   (`make totp`) together.
 - **Lost device**: `make totp U=<username> FORCE=1` replaces the

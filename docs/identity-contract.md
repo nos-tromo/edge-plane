@@ -120,7 +120,9 @@ the authenticated account (`user`) and the request id (`uuid`). The
 query string is cut from the URI and all request and response headers are
 dropped, since they carry referers, cookies and the identity headers. The
 same id goes to each app as `X-Request-ID`, so the gateway's line can be
-matched with the app's own records of the request.
+matched with the app's own records of the request. Login attempts
+themselves, successful or not, are recorded from Authelia's authentication
+log by `auth-audit` — see [audit.md](audit.md#login-attempts-auth).
 
 ## Access control: the admins-group `/grafana` gate
 

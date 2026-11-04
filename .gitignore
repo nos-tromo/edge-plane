@@ -8,3 +8,4 @@ certs/*
 !certs/README.md
 .DS_Store
 *.code-workspace
+__pycache__/

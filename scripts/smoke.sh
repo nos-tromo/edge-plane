@@ -13,6 +13,9 @@
 #      letter case
 #   5. logout destroys the session server-side - replaying the pre-logout
 #      cookie is rejected
+#   6. the logins above reach the audit trail: auth-audit exported them as
+#      auth events, and every chain in its log verifies. Needs the stack on
+#      this host (docker compose); EDGE_SMOKE_AUDIT=0 skips it
 set -euo pipefail
 
 # Caddy's site block is bound to EDGE_HOST, so a request to any other name
@@ -224,5 +227,30 @@ replay=$(run_curl "pre-logout cookie replay" -o /dev/null -w '%{http_code} %{red
 [[ "$replay" == 302\ *"/auth"* ]] \
   || fail "pre-logout session cookie still accepted after logout (expected 302 -> /auth, got: $replay)"
 echo "ok: logout destroys the session server-side (pre-logout cookie rejected)"
+
+# 6. Audit trail: auth-audit polls Authelia's authentication log every few
+# seconds, so give it time to export the first-factor login of step 2.
+if [[ "${EDGE_SMOKE_AUDIT:-1}" != "0" ]]; then
+  COMPOSE=(docker compose --env-file .env -f docker/compose.yaml)
+  # Events are canonical JSON (sorted keys, no spaces), so fixed strings match.
+  actor="\"actor\":{\"user\":\"$USER_NAME\",\"via\":\"edge\"}"
+  login='"operation":"login.1fa","outcome":"ok"'
+  audit_log=""
+  exported=""
+  for _ in $(seq 1 30); do
+    audit_log=$("${COMPOSE[@]}" logs --no-log-prefix auth-audit 2>/dev/null || true)
+    if awk -v actor="$actor" -v login="$login" \
+      'index($0, "\"stream\":\"audit\"") && index($0, actor) && index($0, login) { found = 1 } END { exit !found }' \
+      <<<"$audit_log"; then
+      exported=1
+      break
+    fi
+    sleep 1
+  done
+  [[ -n "$exported" ]] || fail "auth-audit did not export the first-factor login as an auth event"
+  verdict=$("${COMPOSE[@]}" exec -T auth-audit python /app/edge_audit.py verify <<<"$audit_log") \
+    || fail "auth-audit's audit chains do not verify: $verdict"
+  echo "ok: logins exported as auth events; $verdict"
+fi
 
 echo "SMOKE PASS"

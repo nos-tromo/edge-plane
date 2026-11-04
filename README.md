@@ -2,19 +2,21 @@
 
 The federation's edge gateway: Caddy (TLS, path routing) + Authelia
 (forward-auth identity), both pulled and digest-pinned, bundleable for
-airgap. It is the single production entry point for the federation — the
+airgap, plus `auth-audit`, which records every login attempt and account
+change in the audit trail. It is the single production entry point for the federation — the
 one member whose `compose.yaml` publishes host ports at all — and the
 authentication boundary that populates the trusted-header identity
 contract (`X-Auth-User`) three apps already implement.
 
 ## What lives here
 
-Two services:
+Three services:
 
 | Service | Role | Network membership |
 |---|---|---|
 | `caddy` | TLS termination (`:443` + the `:8443` Open WebUI site, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` **and** the project-internal `default` network |
 | `authelia` | Identity provider: file-backed users, SQLite state (sessions/TOTP/preferences), filesystem notifier | project-internal (default) network only, reached by Caddy via `forward_auth` |
+| `auth-audit` | Audit events: every login attempt from Authelia's authentication log, every account change (`make totp`, `authelia/users.yml`) — see [docs/audit.md](docs/audit.md) | none — it reads Authelia's files read-only and writes its log |
 
 `caddy` joins `edge-net` and the project-internal `default` network —
 never `inference-net` or `data-net` — so the gateway itself can never
@@ -108,7 +110,10 @@ entrypoint needs to chown its config and drop to the image's internal
 user. Caddy additionally runs on a read-only root filesystem (`/tmp` and
 `/config` are small tmpfs mounts); Authelia does not, because password
 self-service rewrites the bind-mounted `authelia/users.yml` and its
-SQLite store lives on `edge-state`.
+SQLite store lives on `edge-state`. `auth-audit` runs as uid 65534 with no
+capabilities, a read-only root filesystem and no network; its one-shot
+`auth-audit-init` holds only `CAP_CHOWN`, to hand the `edge-audit-state`
+volume to that user.
 Federation-wide policy: [../deploy/docs/decisions/0001-container-engine-docker.md](../deploy/docs/decisions/0001-container-engine-docker.md).
 
 The four app-frontend upstreams are **:8080** — the apps' hardened images
@@ -149,7 +154,7 @@ root to LAN browsers, using an org-issued certificate instead, and the
 
 ```bash
 make ps                       # service status
-make health                   # caddy + authelia readiness
+make health                   # caddy + authelia readiness, auth-audit export
 make logs S=caddy             # tail logs for one service (omit S= to tail all)
 make stop                     # stop containers without removing them
 make down                     # stop + remove containers (volumes preserved)
@@ -158,7 +163,8 @@ make smoke                    # end-to-end auth/header checks (needs make up-dev
 ```
 
 `make nuke` destroys `edge-state` (Authelia's auth DB) and `edge-ca`
-(Caddy's internal CA and its private key). It is interactive, and the
+(Caddy's internal CA and its private key); it keeps `edge-audit-state`, so
+the replaced database is recorded in the audit trail. It is interactive, and the
 single destructive command in this repo — recovery is not a restart, see
 [docs/tls-runbook.md](docs/tls-runbook.md#recovering-after-make-nuke).
 
@@ -184,6 +190,8 @@ Start at [docs/README.md](docs/README.md) for the full index.
   certificates, client trust, the `EDGE_HOST` caveat.
 - [docs/identity-contract.md](docs/identity-contract.md) — the
   trusted-header contract and the admins-group `/grafana` gate.
+- [docs/audit.md](docs/audit.md) — the audit events: login attempts,
+  account changes, and how `auth-audit` fails closed.
 - [docs/images.md](docs/images.md) — pinned image digests and airgap
   bundling.
 - [docs/portal-tokens.md](docs/portal-tokens.md) — the vendored `@infra/ui`
