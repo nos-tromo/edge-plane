@@ -59,7 +59,7 @@ with forged headers. The edge secret closes that gap.
 through untouched. It is not part of the identity contract — upstreams
 use it internally (Open WebUI issues its own JWTs after the
 trusted-header handshake). Full rationale, including why trusted-header
-was chosen over pushing token validation into four apps, is in
+was chosen over pushing token validation into three apps, is in
 [2026-07-23-edge-plane-design.md](2026-07-23-edge-plane-design.md).
 
 ## Edge secret

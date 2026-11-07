@@ -41,7 +41,7 @@ The `EDGE_SESSION_*` values use Authelia's duration syntax (`30m`, `12h`,
 its template filter, so the file itself stays untouched across updates.
 
 The three `AUTHELIA_*` values in `.env.example` are insecure dev/CI
-placeholders. Generate real ones with `make secret`, and the five
+placeholders. Generate real ones with `make secret`, and the four
 `*_EDGE_SECRET` values the same way.
 
 ## UI language
