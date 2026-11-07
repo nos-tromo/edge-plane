@@ -124,11 +124,11 @@ Every request through the gateway follows strip → auth → inject:
    decorative — UI display only, e.g. the portal's greeting; apps must
    keep keying identity on `X-Auth-User`.
 4. Each app's `reverse_proxy` also sets `X-Edge-Secret` (that app's own
-   secret from `.env`, e.g. `CHORUS_EDGE_SECRET`) and `X-Request-ID`
+   secret from `.env`, e.g. `DOCINT_EDGE_SECRET`) and `X-Request-ID`
    (`{http.request.uuid}`). The apps trust `X-Auth-*` only with a matching
    secret: their backends share `inference-net`/`data-net` with other
    containers. `strip_identity` also removes client-sent `X-Edge-Secret`.
-   Keep the value quoted (`"{$CHORUS_EDGE_SECRET}"`) so an unset secret
+   Keep the value quoted (`"{$DOCINT_EDGE_SECRET}"`) so an unset secret
    becomes an empty header instead of a parse error; snippet arguments
    (`{args[0]}`) are not a substitute — an empty one leaves the literal
    placeholder in the header. obs-plane's two Grafanas get the same pair
@@ -140,8 +140,8 @@ query string, no headers; `user` from `X-Auth-User`, request id as
 `uuid`). See `docs/identity-contract.md`.
 
 `Authorization` passes through untouched — it is not part of the contract
-(upstreams like Open WebUI use it internally). Downstream apps (chorus,
-docint, Nextext) consume `X-Auth-User` fail-closed; the whole model is
+(upstreams like Open WebUI use it internally). Downstream apps (docint,
+Nextext) consume `X-Auth-User` fail-closed; the whole model is
 sound only because production publishes no other host ports, the gateway
 strips before injecting, and each app checks its edge secret — the first
 two are what `scripts/smoke.sh`'s spoof test proves (forged
@@ -156,8 +156,8 @@ These were all hit in anger; don't "simplify" them away:
 - Proxies needing auth must live inside `handle` blocks: at site level
   Caddy orders `forward_auth` **before** `request_header`, so
   `strip_identity` would delete the headers `copy_headers` just injected.
-- Every app matcher covers the bare prefix too (`/chorus` and
-  `/chorus/*`) — the path matcher alone misses the slash-less form
+- Every app matcher covers the bare prefix too (`/docint` and
+  `/docint/*`) — the path matcher alone misses the slash-less form
   (gateway 404).
 - Bare `/auth` must be matched: Authelia's login redirects target the
   slash-less portal URL, which must not fall into the authenticated
@@ -180,10 +180,10 @@ These were all hit in anger; don't "simplify" them away:
   creates it) plus the project-internal default network where Authelia
   lives — never `inference-net`/`data-net`. Authelia is on the internal
   network only, reachable solely via Caddy. Upstreams are reached by
-  `edge-net` alias (`chorus-frontend`, `docint-frontend`,
+  `edge-net` alias (`docint-frontend`,
   `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
   `grafana-audit`);
-  this repo does not own those services. Do not route Neo4j/Qdrant/
+  this repo does not own those services. Do not route Qdrant/
   `vllm-router` — that is the seam violation the network design prevents.
 - Three external volumes: `edge-state` (Authelia's encrypted SQLite —
   TOTP secrets, sessions) and `edge-ca` (Caddy's internal CA + private

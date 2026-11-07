@@ -6,7 +6,7 @@ airgap, plus `auth-audit`, which records every login attempt and account
 change in the audit trail. It is the single production entry point for the federation — the
 one member whose `compose.yaml` publishes host ports at all — and the
 authentication boundary that populates the trusted-header identity
-contract (`X-Auth-User`) three apps already implement.
+contract (`X-Auth-User`) two apps already implement.
 
 ## What lives here
 
@@ -26,7 +26,7 @@ authelia:9091` resolves, because Authelia joins that network alone and is
 never reachable from `edge-net`.
 
 All application traffic flows through each app's own frontend nginx,
-reached by alias on `edge-net` (`chorus-frontend`, `docint-frontend`,
+reached by alias on `edge-net` (`docint-frontend`,
 `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
 `grafana-audit`).
 `edge-net` is the federation's third external network seam, alongside
@@ -40,8 +40,7 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 
 | Path | Upstream (`edge-net` alias) | Auth | Notes |
 |---|---|---|---|
-| `/chorus/*` | `chorus-frontend:8080` | forward_auth | SPA serves from the sub-path |
-| `/docint/*` | `docint-frontend:8080` | forward_auth | same |
+| `/docint/*` | `docint-frontend:8080` | forward_auth | SPA serves from the sub-path |
 | `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
 | `/translator/*` | `translator-frontend:8080` | forward_auth | stateless; `X-Auth-User` is used for display only |
 | `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
@@ -69,8 +68,8 @@ decision: [docs/2026-07-23-edge-plane-design.md](docs/2026-07-23-edge-plane-desi
 
 ### What is deliberately NOT routed
 
-- **Neo4j Browser, Qdrant dashboard** — operator/admin surfaces, not
-  end-user apps. SSH tunnel remains their access model, unchanged by
+- **Qdrant dashboard** — operator/admin surface, not an
+  end-user app. SSH tunnel remains its access model, unchanged by
   edge-plane.
 - **`vllm-router`** — backend-only; it stays on `inference-net`, which
   the gateway never joins. Apps reach inference over the network as
@@ -116,7 +115,7 @@ capabilities, a read-only root filesystem and no network; its one-shot
 volume to that user.
 Federation-wide policy: [../deploy/docs/decisions/0001-container-engine-docker.md](../deploy/docs/decisions/0001-container-engine-docker.md).
 
-The four app-frontend upstreams are **:8080** — the apps' hardened images
+The three app-frontend upstreams are **:8080** — the apps' hardened images
 serve on 8080 (`nginx-unprivileged`), so an edge-plane release before/after
 the app releases must land in the same deployment window or those routes
 502.
