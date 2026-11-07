@@ -9,7 +9,7 @@ Provisioning the accounts behind it is covered in
 
 ## The contract
 
-Three apps (chorus, docint, Nextext) already implement an identical
+Two apps (docint, Nextext) already implement an identical
 seam: a configurable header (default `X-Auth-User`) resolved fail-closed
 to a principal, with the upstream reverse proxy named as the intended
 issuer. Nothing issued it in production before edge-plane. The flow:
@@ -59,13 +59,13 @@ with forged headers. The edge secret closes that gap.
 through untouched. It is not part of the identity contract — upstreams
 use it internally (Open WebUI issues its own JWTs after the
 trusted-header handshake). Full rationale, including why trusted-header
-was chosen over pushing token validation into four apps, is in
+was chosen over pushing token validation into three apps, is in
 [2026-07-23-edge-plane-design.md](2026-07-23-edge-plane-design.md).
 
 ## Edge secret
 
 Each app that consumes the identity headers gets its own secret, set in
-edge-plane's `.env` (`CHORUS_EDGE_SECRET`, `DOCINT_EDGE_SECRET`,
+edge-plane's `.env` (`DOCINT_EDGE_SECRET`,
 `NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET`)
 and, with the same value under the same name, in that app's own `.env`.
 The gateway sends it as `X-Edge-Secret` on every request it proxies to
@@ -156,7 +156,7 @@ is. Without it, `/Grafana/` is routed to Grafana by Caddy but matches
 neither Grafana rule here, so it falls through to the catch-all. Dot
 segments, percent-encoding and repeated slashes need no such care:
 Authelia normalizes the path before matching (verified for
-`/chorus/../grafana/`, `//grafana/` and `/%67rafana/`).
+`/docint/../grafana/`, `//grafana/` and `/%67rafana/`).
 
 Order matters — first match wins — and the pair is deliberate: `subject`
 is part of a rule's **match** criteria, not a condition applied after

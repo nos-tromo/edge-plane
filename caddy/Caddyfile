@@ -108,17 +108,9 @@ https://{$EDGE_HOST}:443 {
 	#
 	# App routes: prefix is NOT stripped — each upstream serves under
 	# its sub-path (SPA base / serve_from_sub_path; delivery steps ②–④).
-	# Each matcher covers the bare prefix too (/chorus as well as
-	# /chorus/*): handle's path matcher alone misses the slash-less
+	# Each matcher covers the bare prefix too (/docint as well as
+	# /docint/*): handle's path matcher alone misses the slash-less
 	# form, which would 404 at the gateway before reaching the app.
-	@chorus path /chorus /chorus/*
-	handle @chorus {
-		import authed
-		reverse_proxy chorus-frontend:8080 {
-			header_up X-Edge-Secret "{$CHORUS_EDGE_SECRET}"
-			header_up X-Request-ID {http.request.uuid}
-		}
-	}
 	@docint path /docint /docint/*
 	handle @docint {
 		import authed
