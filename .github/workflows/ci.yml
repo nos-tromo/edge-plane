@@ -35,9 +35,30 @@ jobs:
       - name: docker compose config
         run: |
           cp .env.example .env
+          # .env.example leaves the required values empty: fill them with
+          # synthetic CI-only ones.
+          for kv in EDGE_HOST=127.0.0.1 \
+            AUTHELIA_SESSION_SECRET=ci-session-secret-0123456789abcdef \
+            AUTHELIA_STORAGE_ENCRYPTION_KEY=ci-storage-key-0123456789abcdef \
+            AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=ci-jwt-secret-0123456789abcdef \
+            AUDIT_EDGE_SECRET=ci-audit-edge-secret-0123456789abcdef; do
+            grep -q "^${kv%%=*}=$" .env
+            sed -i "s|^${kv%%=*}=$|$kv|" .env
+          done
           cp authelia/users.template.yml authelia/users.yml
           docker compose --env-file .env -f docker/compose.yaml config --quiet
           docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml config --quiet
+      - name: the audit edge secret is required
+        # Every other required value filled, AUDIT_EDGE_SECRET left empty as
+        # .env.example has it: compose must refuse, with the hint.
+        run: |
+          sed 's|^AUDIT_EDGE_SECRET=.*|AUDIT_EDGE_SECRET=|' .env > .env.noaudit
+          if docker compose --env-file .env.noaudit -f docker/compose.yaml config --quiet 2> refused.txt; then
+            echo "compose accepted an empty AUDIT_EDGE_SECRET" >&2
+            exit 1
+          fi
+          cat refused.txt
+          grep -q 'AUDIT_EDGE_SECRET must be set' refused.txt
       - name: caddy validate
         run: |
           docker run --rm -e EDGE_HOST=127.0.0.1 \
@@ -82,6 +103,16 @@ jobs:
       - name: bring up dev stack
         run: |
           cp .env.example .env
+          # .env.example leaves the required values empty: fill them with
+          # synthetic CI-only ones.
+          for kv in EDGE_HOST=127.0.0.1 \
+            AUTHELIA_SESSION_SECRET=ci-session-secret-0123456789abcdef \
+            AUTHELIA_STORAGE_ENCRYPTION_KEY=ci-storage-key-0123456789abcdef \
+            AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=ci-jwt-secret-0123456789abcdef \
+            AUDIT_EDGE_SECRET=ci-audit-edge-secret-0123456789abcdef; do
+            grep -q "^${kv%%=*}=$" .env
+            sed -i "s|^${kv%%=*}=$|$kv|" .env
+          done
           cp authelia/users.template.yml authelia/users.yml
           make up-dev
       - name: wait for caddy, authelia and auth-audit healthy

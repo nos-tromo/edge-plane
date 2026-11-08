@@ -34,15 +34,17 @@ account changes and login attempts ([audit.md](audit.md)).
 | `EDGE_AUTH_POLICY` | `two_factor` (`make up-dev`: `one_factor`) | Authelia policy for every protected route: `two_factor` (password + TOTP) or `one_factor`. TOTP is admin-provisioned (`make totp`) — see [user-accounts.md](user-accounts.md#second-factor) |
 | `DOCINT_EDGE_SECRET`, `NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET` | empty | Per-app secret the gateway sends as `X-Edge-Secret`; each must equal the same variable in that app's `.env`. Generate with `make secret` — see [identity-contract.md](identity-contract.md#edge-secret) |
 | `AUDIT_POLL_INTERVAL` | `5` | Seconds between `auth-audit`'s rounds over Authelia's authentication log and `authelia/users.yml` (1–3600) — see [audit.md](audit.md#configuration) |
-| `GRAFANA_EDGE_SECRET`, `AUDIT_EDGE_SECRET` | empty | The same for obs-plane's Grafana (`/grafana`) and audit-trail viewer (`/audit`); each must equal the same variable in obs-plane's `.env`. `/audit` answers 403 until `AUDIT_EDGE_SECRET` is set on both sides |
+| `GRAFANA_EDGE_SECRET` | empty | The same for obs-plane's Grafana (`/grafana`); must equal the same variable in obs-plane's `.env` |
+| `AUDIT_EDGE_SECRET` | none, required | The same for obs-plane's audit-trail viewer (`/audit`); must equal the same variable in obs-plane's `.env`, at least 32 characters. `make up` refuses to start while it is empty, and `/audit` answers 403 until it is set on both sides |
 
 The `EDGE_SESSION_*` values use Authelia's duration syntax (`30m`, `12h`,
 `1w`, `2M`, `1y`) and are rendered into `authelia/configuration.yml` by
 its template filter, so the file itself stays untouched across updates.
 
-The three `AUTHELIA_*` values in `.env.example` are insecure dev/CI
-placeholders. Generate real ones with `make secret`, and the four
-`*_EDGE_SECRET` values the same way.
+`.env.example` leaves the three `AUTHELIA_*` values, `EDGE_HOST` and
+`AUDIT_EDGE_SECRET` empty: `make up` refuses to start until they are set.
+Generate the secrets with `make secret`, and the optional `*_EDGE_SECRET`
+values the same way.
 
 ## UI language
 

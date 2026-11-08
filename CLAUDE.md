@@ -65,7 +65,11 @@ EDGE_PLANE_VERSION_OVERRIDE=<v> make bundle   # bundle the working tree instead
 make nuke           # DESTROYS edge-state + edge-ca volumes — interactive; new CA root on next up
 ```
 
-First-time setup: `cp .env.example .env` (set `EDGE_HOST`, real secrets —
+`.env.example` follows deploy's shared format (deploy
+`docs/runbooks/env-sync.md`, For member authors); check with
+`python3 -B ../deploy/scripts/check_env_examples.py .`.
+
+First-time setup: `cp .env.example .env` (set `EDGE_HOST`, the `AUTHELIA_*` and `AUDIT_EDGE_SECRET` secrets —
 storage encryption key must be right **before first up**, see
 `docs/user-accounts.md`),
 `cp authelia/users.template.yml authelia/users.yml`, `make user`.
