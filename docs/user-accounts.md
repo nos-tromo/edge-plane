@@ -18,8 +18,8 @@ make secret
 ```
 
 and set `AUTHELIA_SESSION_SECRET`, `AUTHELIA_STORAGE_ENCRYPTION_KEY`, and
-`AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET` in `.env` — the
-`.env.example` values are insecure dev/CI placeholders only.
+`AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET` in `.env` — they
+are empty in `.env.example`, and compose refuses to start without them.
 
 Set the real secrets **before the first `make up`**: Authelia encrypts its
 SQLite DB on the `edge-state` volume with `AUTHELIA_STORAGE_ENCRYPTION_KEY`
