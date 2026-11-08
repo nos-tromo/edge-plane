@@ -89,9 +89,10 @@ secret of its own:
 
 - `GRAFANA_EDGE_SECRET` (`/grafana`) works like the apps' secrets: unset,
   the headers are trusted as before.
-- `AUDIT_EDGE_SECRET` (`/audit`) is required. Without it, or with a
-  mismatch, the audit-trail viewer refuses every request, so `/audit`
-  answers 403 until both `.env` files carry the same value.
+- `AUDIT_EDGE_SECRET` (`/audit`) is required: compose refuses to start
+  without it. With a mismatch, the audit-trail viewer refuses every
+  request, so `/audit` answers 403 until both `.env` files carry the
+  same value.
 
 Open WebUI cannot check a secret itself either, and it does sit on
 `inference-net`. open-webui-service therefore puts a small nginx in front
