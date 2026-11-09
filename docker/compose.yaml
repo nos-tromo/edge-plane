@@ -83,15 +83,15 @@ services:
       # Per-upstream edge secrets, sent as X-Edge-Secret (the header_up
       # lines in caddy/Caddyfile). Each value must equal the one in the
       # receiving repo's own .env (obs-plane's for the two Grafana ones);
-      # generate with `make secret`. Empty sends an empty header, which an
-      # upstream without its own secret ignores; obs-plane's audit viewer
+      # generate with `openssl rand -hex 32`. Empty sends an empty header, which
+      # an upstream without its own secret ignores; obs-plane's audit viewer
       # requires its secret and refuses every request without it.
       DOCINT_EDGE_SECRET: ${DOCINT_EDGE_SECRET:-}
       NEXTEXT_EDGE_SECRET: ${NEXTEXT_EDGE_SECRET:-}
       TRANSLATOR_EDGE_SECRET: ${TRANSLATOR_EDGE_SECRET:-}
       OPEN_WEBUI_EDGE_SECRET: ${OPEN_WEBUI_EDGE_SECRET:-}
       GRAFANA_EDGE_SECRET: ${GRAFANA_EDGE_SECRET:-}
-      AUDIT_EDGE_SECRET: ${AUDIT_EDGE_SECRET:?AUDIT_EDGE_SECRET must be set in .env (make secret; same value as obs-plane)}
+      AUDIT_EDGE_SECRET: ${AUDIT_EDGE_SECRET:?AUDIT_EDGE_SECRET must be set in .env (openssl rand -hex 32; same value as obs-plane)}
     ports:
       - "443:443"
       - "80:80"
