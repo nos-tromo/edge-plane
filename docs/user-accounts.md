@@ -14,7 +14,7 @@ identity once Authelia has established it is a separate contract — see
 Generate production secrets with:
 
 ```bash
-make secret
+openssl rand -hex 32
 ```
 
 and set `AUTHELIA_SESSION_SECRET`, `AUTHELIA_STORAGE_ENCRYPTION_KEY`, and

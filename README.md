@@ -124,7 +124,7 @@ the app releases must land in the same deployment window or those routes
 
 ```bash
 cp .env.example .env
-$EDITOR .env                              # set EDGE_HOST; generate real secrets with `make secret`
+$EDITOR .env                              # set EDGE_HOST; generate real secrets with `openssl rand -hex 32`
 cp authelia/users.template.yml authelia/users.yml
 make user                                 # hash a real password, paste the result into users.yml
 make up                                   # production shape — :443, :8443 (+:80 redirect) only

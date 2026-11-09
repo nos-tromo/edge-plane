@@ -104,8 +104,8 @@ to Nextext authenticates with a service token instead (Nextext's
 `NEXTEXT_SERVICE_TOKENS`, docint's `NEXTEXT_API_KEY`), which maps to a
 fixed service principal and cannot carry a user's identity.
 
-**Setting up or rotating.** Generate each value with `make secret`, put
-it into edge-plane's `.env` and the receiving repo's `.env` (the app's, or
+**Setting up or rotating.** Generate each value with `openssl rand -hex 32`,
+put it into edge-plane's `.env` and the receiving repo's `.env` (the app's, or
 obs-plane's for the Grafanas), then recreate both
 (`make up` in each; a plain restart keeps the old value). Order matters
 only when an app starts enforcing for the first time: the gateway has to
