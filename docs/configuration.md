@@ -27,6 +27,7 @@ account changes and login attempts ([audit.md](audit.md)).
 | `EDGE_TLS` | unset → internal CA | Cert source. Set to the in-container PEM path pair for an org-issued certificate — see [tls-runbook.md](tls-runbook.md#option-b-org-issued-certificate) |
 | `RESPONSE_LANGUAGE` | `en` | Landing-page UI language (`en` \| `de`) — see below |
 | `EDGE_SUPPORT_CONTACT` | unset → tile hidden | Support contact rendered on the portal's "report a problem" tile. Never commit a real value |
+| `EDGE_ANNOUNCEMENT_FILE` | `announcement.md`; empty → section hidden | Markdown file in `announcements/` rendered as the portal's announcement section — see below |
 | `EXTRA_NO_PROXY` | unset | Extra hostnames to exempt from a corporate proxy — see below |
 | `EDGE_SESSION_EXPIRATION` | `12h` | Absolute session lifetime — see [user-accounts.md](user-accounts.md#session-behaviour) |
 | `EDGE_SESSION_INACTIVITY` | `4h` | Idle timeout before re-login |
@@ -57,6 +58,50 @@ restarted — `docker compose restart` reuses the old interpolated value).
 The Authelia login portal is not affected by this variable — it
 self-localizes from the browser's `Accept-Language` header (German
 included), so no configuration is needed there.
+
+## Portal announcement
+
+The portal can show a block of Markdown between the app tiles and the
+settings tiles, titled "Announcements" (German: "Neuigkeiten"), e.g. to
+explain new features. Caddy renders it server-side with its `markdown`
+template function; nothing is fetched at runtime.
+
+The text comes from a file in `announcements/`, which is mounted read-only
+into Caddy. `EDGE_ANNOUNCEMENT_FILE` names the file:
+
+- **With a release:** edit `announcements/announcement.md` (the default) in
+  the release PR. It ships with the release and replaces the host's copy on
+  every airgap transfer.
+- **On one host only:** place another `.md` file in `announcements/` (every
+  name but `announcement.md` and the smoke-test fixture `smoke.md` is
+  gitignored), set `EDGE_ANNOUNCEMENT_FILE` to its name, and
+  run `make up` (the container must be recreated to see a changed variable).
+- **Hide it:** set `EDGE_ANNOUNCEMENT_FILE=` (empty), or leave the selected
+  file with nothing but HTML comments in it — the shipped default looks like
+  that.
+
+Edits to the selected file show on the next page load, without a restart.
+The section is also hidden — never an error page — when the named file is
+missing, unreadable, a directory, or not a `.md` file. The file must be readable by the
+container (mode `0644`).
+
+Content rules:
+
+- GitHub-flavoured Markdown: lists, task lists, tables, strikethrough,
+  autolinked URLs, fenced code, footnotes. Start headings at `##`; the
+  section title is already the page's top-level heading.
+- HTML comments (`<!-- ... -->`) are removed before rendering, so they can
+  hold notes for other operators.
+- Other raw HTML is passed through unchanged — Caddy's renderer does not
+  sanitize it. Treat the file like configuration: no `<script>`, no inline
+  event handlers. Every signed-in user sees it, on the same origin as all
+  apps.
+- No images or other resources from external URLs: the browser would try to
+  fetch them, and airgapped clients cannot. Links are fine — they load only
+  when clicked.
+- Template syntax (`{{ ... }}`) is shown as text, never run: the file is read
+  with `readFile`, not `include`, so it cannot pull Caddy's environment (the
+  edge secrets) into the page.
 
 ## Proxy bypass
 

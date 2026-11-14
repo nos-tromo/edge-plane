@@ -6,6 +6,9 @@ notification.txt
 .edge-plane-version
 certs/*
 !certs/README.md
+announcements/*
+!announcements/announcement.md
+!announcements/smoke.md
 .DS_Store
 *.code-workspace
 __pycache__/

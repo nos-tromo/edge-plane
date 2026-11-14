@@ -190,11 +190,16 @@ https://{$EDGE_HOST}:443 {
 
 	# Landing page (authenticated) for everything else. `templates`
 	# renders the signed-in identity (X-Auth-User, injected by authed)
-	# into the static HTML server-side.
+	# into the static HTML server-side. Its file functions read from
+	# /srv/announcements only (the announcement Markdown): nothing else in
+	# the container, such as the CA key on /data, is reachable through
+	# EDGE_ANNOUNCEMENT_FILE, and the .md files are never served directly.
 	handle {
 		import authed
 		root * /srv/landing
-		templates
+		templates {
+			root /srv/announcements
+		}
 		file_server
 	}
 }
