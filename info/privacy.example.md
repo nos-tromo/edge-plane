@@ -39,15 +39,17 @@ und die darüber erreichbaren Anwendungen nutzen.
 ## Welche Daten verarbeitet werden, wozu und wie lange
 
 <!--
-Anmeldeversuche: Authelia löscht sein Anmeldeprotokoll (authentication_logs)
-derzeit nie (docs/audit.md). Eine Frist lässt sich erst angeben, wenn das
-technisch umgesetzt ist. "Unbegrenzt" ist keine zulässige Angabe.
+"Bis zur Löschung des Kontos": Wird ein Konto aus authelia/users.yml
+entfernt, löscht Authelia seine TOTP-Konfiguration und Einstellungen nicht
+selbst (docs/decisions/0003-auth-retention-deletes-authelia-records.md).
+Die Angabe stimmt nur, wenn sie beim Entfernen des Kontos mitgelöscht werden.
 -->
 
 | Daten | Zweck | Speicherdauer |
 |---|---|---|
 | Ihr Konto: Benutzername, Anzeigename, dienstliche E-Mail-Adresse, Gruppenzugehörigkeit, Passwort (nur als Hash), zweiter Faktor | Anmeldung und Berechtigungen | bis zur Löschung des Kontos |
-| Anmeldeversuche: Zeitpunkt, Konto, Erfolg oder Fehlschlag, Netzwerkadresse Ihres Geräts | Schutz vor unbefugtem Zugriff, Datenschutzkontrolle | [Frist] |
+| Anmeldeversuche: Zeitpunkt, Konto, Erfolg oder Fehlschlag, Netzwerkadresse Ihres Geräts | Schutz vor unbefugtem Zugriff, Datenschutzkontrolle | 30 Tage im Anmeldedienst (`EDGE_AUTH_RETENTION_DAYS`, prüfen); im Datenschutz-Protokoll 1 Jahr (`AUDIT_RETENTION` in obs-plane, prüfen) |
+| Anmeldesicherheit: Einmalcodes für die Passwortänderung, Zeitpunkte verwendeter Codes des zweiten Faktors, vorübergehende Sperren nach Fehlversuchen (Konto oder Netzwerkadresse) | Schutz vor unbefugtem Zugriff | 30 Tage nach Ablauf bzw. Aufhebung (`EDGE_AUTH_RETENTION_DAYS`, prüfen); dauerhafte Sperren bis zu ihrer Aufhebung |
 | Sitzung: das Cookie `authelia_session` | angemeldet bleiben | 12 Stunden, nach 4 Stunden ohne Aktivität beendet; mit „Angemeldet bleiben“ 2 Monate (`EDGE_SESSION_*`, prüfen) |
 | Zugriffsprotokoll: Zeitpunkt, Konto, aufgerufene Adresse ohne Suchparameter, Ergebnis, Netzwerkadresse, Anfragekennung | Datenschutzkontrolle, Sicherheit | 1 Jahr (`AUDIT_RETENTION` in obs-plane, prüfen) |
 | Protokoll der Verarbeitungen in den Anwendungen: wer wann welche Daten erfasst, abgefragt, übermittelt oder gelöscht hat, mit dem angegebenen Zweck oder Aktenzeichen. Inhalte werden nicht protokolliert. | Datenschutzkontrolle | 1 Jahr (`AUDIT_RETENTION` in obs-plane, prüfen) |

@@ -22,8 +22,9 @@ pulled, digest-pinned images: **Caddy** (TLS on `:443` + `:80` redirect,
 path routing, `forward_auth`, identity-header injection; dedicated
 `:8443` site for Open WebUI), **Authelia** (file-backed users, SQLite
 state, filesystem notifier — airgap-clean, no SMTP/egress), and
-**python** for `auth-audit`, which runs one stdlib script mounted from
-`audit/` (login attempts and account changes as audit events). Caddy's are
+**python** for `auth-audit` and `auth-retention`, which run stdlib scripts
+mounted from `audit/` (login attempts and account changes as audit events;
+deleting Authelia's login records after a period). Caddy's are
 the only published host ports in the whole production federation.
 
 `README.md` is the entry point — what the gateway is, the routing table,
@@ -45,7 +46,8 @@ match.
 ## Commands
 
 There is no build. The tests are config validation, an end-to-end smoke
-script, and a stdlib `unittest` suite for `audit/` (`auth-audit`). Bespoke
+script, and a stdlib `unittest` suite for `audit/` (`auth-audit`,
+`auth-retention`). Bespoke
 Makefile (data-plane/obs-plane pattern), not `common.mk`; no `make verify`,
 no `bundle-dev`.
 
@@ -53,7 +55,8 @@ no `bundle-dev`.
 make up             # production shape (:443/:80/:8443 only); requires .env + authelia/users.yml
 make up-dev         # + whoami header-echo upstream and its /whoami route
 make smoke          # end-to-end auth/header contract test — needs a running `make up-dev`
-make health         # caddy + authelia readiness, auth-audit export
+make health         # caddy + authelia readiness, auth-audit export, auth-retention
+make retention-dry-run [DAYS=n]   # what auth-retention would delete now (counts only)
 make logs S=caddy   # tail one service (omit S= for all)
 make down           # stop, volumes preserved
 make user           # hash a password for authelia/users.yml (argon2)
@@ -83,7 +86,7 @@ docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddy
   caddy validate --config /etc/caddy/Caddyfile                                  # Caddyfile validation
 ./scripts/check-tokens-vendor.sh                                                # landing/tokens.css vendoring header
 ./scripts/check-no-literal-dimensions.sh                                        # portal font-size/border-radius must be tokens
-python3 -m unittest discover -s audit/tests -t audit                            # auth-audit (also run in the pinned python image)
+python3 -m unittest discover -s audit/tests -t audit                            # auth-audit + auth-retention (also run in the pinned python image)
 ./scripts/smoke.sh                                                              # after make up-dev; also checks the audit export
 ```
 
@@ -192,8 +195,9 @@ These were all hit in anger; don't "simplify" them away:
 - Three external volumes: `edge-state` (Authelia's encrypted SQLite —
   TOTP secrets, sessions) and `edge-ca` (Caddy's internal CA + private
   key) — `docker compose down -v` can't destroy them; only `make nuke` —
-  and `edge-audit-state` (`auth-audit`'s export positions), which even
-  `make nuke` keeps so a replaced Authelia database is recorded as such.
+  and `edge-audit-state` (`auth-audit`'s export positions, also mounted
+  read-only by `auth-retention`), which even `make nuke` keeps so a
+  replaced Authelia database is recorded as such.
   A fourth, `edge-notify`, is deliberately project-scoped rather than
   external: it carries Authelia's filesystem notifications (the one-time
   codes the `/auth-code` viewer renders), which are short-lived, not
@@ -260,12 +264,28 @@ These were all hit in anger; don't "simplify" them away:
   (`scripts/audit-admin.sh`), never in a one-off container — so obs-plane
   binds them to the `auth-audit` compose service. The account targets
   refuse to run while it cannot record. Never write to Authelia's
-  database from it.
+  database from it — deleting is `auth-retention`'s job.
+- `auth-retention` (`docs/audit.md#retention`,
+  `docs/decisions/0003-auth-retention-deletes-authelia-records.md`) is the
+  only writer to Authelia's database besides Authelia: it deletes the
+  rows of `authentication_logs`, `one_time_code`, `identity_verification`,
+  `totp_history` and ended bans after `EDGE_AUTH_RETENTION_DAYS` (30).
+  Authentication-log rows only up to `auth-audit`'s export position for the
+  same database (in doubt: none). Each batch is a `delete` event written
+  **before** its `COMMIT` (no record, no deletion), in short `BEGIN
+  IMMEDIATE` transactions by primary key — Authelia's busy timeout is 5 s
+  and an attempt it cannot insert is lost. Times are parsed (`db_time`),
+  never compared as text. It runs as uid 0 because that owns
+  `db.sqlite3`, with no capabilities, read-only rootfs, no network. A
+  schema guard (verified schema version 24) plus a test that compose pins
+  `auth_sweep.VERIFIED_AUTHELIA_IMAGE` stop it on an unchecked Authelia;
+  its chain is bound by obs-plane to the `auth-retention` compose service.
 - Airgap-first: internal CA by default (no ACME/OCSP/egress), or
   org-issued PEMs via `EDGE_TLS` + `certs/` (see `docs/tls-runbook.md`).
   Never add anything that fetches at runtime. When bumping an image,
   update the digest pin in `docker/compose.yaml`, `docs/images.md`, and
-  `ci.yml` together.
+  `ci.yml` together; an Authelia bump also re-verifies `auth-retention`
+  (`docs/images.md`, "Bumping Authelia").
 
 ## Git & PR Workflow
 

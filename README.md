@@ -3,20 +3,22 @@
 The federation's edge gateway: Caddy (TLS, path routing) + Authelia
 (forward-auth identity), both pulled and digest-pinned, bundleable for
 airgap, plus `auth-audit`, which records every login attempt and account
-change in the audit trail. It is the single production entry point for the federation — the
+change in the audit trail, and `auth-retention`, which deletes Authelia's
+login records after a set period. It is the single production entry point for the federation — the
 one member whose `compose.yaml` publishes host ports at all — and the
 authentication boundary that populates the trusted-header identity
 contract (`X-Auth-User`) two apps already implement.
 
 ## What lives here
 
-Three services:
+Four services:
 
 | Service | Role | Network membership |
 |---|---|---|
 | `caddy` | TLS termination (`:443` + the `:8443` Open WebUI site, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` **and** the project-internal `default` network |
 | `authelia` | Identity provider: file-backed users, SQLite state (sessions/TOTP/preferences), filesystem notifier | project-internal (default) network only, reached by Caddy via `forward_auth` |
 | `auth-audit` | Audit events: every login attempt from Authelia's authentication log, every account change (`make totp`, `authelia/users.yml`) — see [docs/audit.md](docs/audit.md) | none — it reads Authelia's files read-only and writes its log |
+| `auth-retention` | Deletes Authelia's login records (authentication log once exported, one-time codes, identity verifications, TOTP history, ended bans) after `EDGE_AUTH_RETENTION_DAYS` (30), each batch an audit `delete` event — see [docs/audit.md](docs/audit.md#retention) | none — the only writer to Authelia's database besides Authelia |
 
 `caddy` joins `edge-net` and the project-internal `default` network —
 never `inference-net` or `data-net` — so the gateway itself can never
@@ -113,7 +115,9 @@ self-service rewrites the bind-mounted `authelia/users.yml` and its
 SQLite store lives on `edge-state`. `auth-audit` runs as uid 65534 with no
 capabilities, a read-only root filesystem and no network; its one-shot
 `auth-audit-init` holds only `CAP_CHOWN`, to hand the `edge-audit-state`
-volume to that user.
+volume to that user. `auth-retention` runs as uid 0 — the owner of
+Authelia's database file — with no capabilities (so no `DAC_OVERRIDE`), a
+read-only root filesystem and no network.
 Federation-wide policy: [../deploy/docs/decisions/0001-container-engine-docker.md](../deploy/docs/decisions/0001-container-engine-docker.md).
 
 The three app-frontend upstreams are **:8080** — the apps' hardened images
@@ -154,7 +158,8 @@ root to LAN browsers, using an org-issued certificate instead, and the
 
 ```bash
 make ps                       # service status
-make health                   # caddy + authelia readiness, auth-audit export
+make health                   # caddy + authelia readiness, auth-audit export, auth-retention
+make retention-dry-run        # what auth-retention would delete now (DAYS=n previews another period)
 make logs S=caddy             # tail logs for one service (omit S= to tail all)
 make stop                     # stop containers without removing them
 make down                     # stop + remove containers (volumes preserved)
@@ -191,7 +196,8 @@ Start at [docs/README.md](docs/README.md) for the full index.
 - [docs/identity-contract.md](docs/identity-contract.md) — the
   trusted-header contract and the admins-group `/grafana` gate.
 - [docs/audit.md](docs/audit.md) — the audit events: login attempts,
-  account changes, and how `auth-audit` fails closed.
+  account changes, how `auth-audit` fails closed, and the retention of
+  Authelia's records (`auth-retention`).
 - [docs/images.md](docs/images.md) — pinned image digests and airgap
   bundling.
 - [docs/portal-tokens.md](docs/portal-tokens.md) — the vendored `@infra/ui`
