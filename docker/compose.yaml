@@ -80,6 +80,11 @@ services:
       # Optional support contact rendered on the portal's "report a problem"
       # tile (hidden when unset). Never commit a real value.
       EDGE_SUPPORT_CONTACT: ${EDGE_SUPPORT_CONTACT:-}
+      # Markdown file in announcements/ rendered as the portal's announcement
+      # section (docs/configuration.md#portal-announcement). No colon in the
+      # default on purpose: unset means announcement.md, while an explicit
+      # empty value hides the section instead of falling back.
+      EDGE_ANNOUNCEMENT_FILE: ${EDGE_ANNOUNCEMENT_FILE-announcement.md}
       # Per-upstream edge secrets, sent as X-Edge-Secret (the header_up
       # lines in caddy/Caddyfile). Each value must equal the one in the
       # receiving repo's own .env (obs-plane's for the two Grafana ones);
@@ -103,6 +108,10 @@ services:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
       - ../landing:/srv/landing:ro
+      # A directory bind, not a file bind (edits stay visible after an editor
+      # renames a new file over the old one), on a rootfs path rather than
+      # nested inside the /srv/landing bind.
+      - ../announcements:/srv/announcements:ro
       - ../certs:/etc/caddy/certs:ro
       # File bind + sibling volume, NOT a directory bind with the volume
       # nested inside it: Docker Desktop (VirtioFS, Engine 29 line) silently

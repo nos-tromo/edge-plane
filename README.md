@@ -50,7 +50,7 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/tokens.css` | — (static, `landing/`) | **none** | the vendored `@infra/ui` design tokens both portal pages link. Deliberately unauthenticated (plain CSS, nothing sensitive) and served from an absolute path so `/auth-code/*` — whose handle rewrites every path to `index.html` — can link it too. See [docs/portal-tokens.md](docs/portal-tokens.md) |
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
-| everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, and inline password-change form; light/dark via the shared `infra-ui-theme` tri-state toggle (OS-preference default) |
+| everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, an optional Markdown announcement section ([docs/configuration.md](docs/configuration.md#portal-announcement)), and inline password-change form; light/dark via the shared `infra-ui-theme` tri-state toggle (OS-preference default) |
 
 Open WebUI is the one exception to the path model: it is served from its own
 site at `https://<EDGE_HOST>:8443/`, published alongside `:443`/`:80` as the

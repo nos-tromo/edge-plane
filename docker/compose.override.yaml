@@ -16,6 +16,9 @@ services:
       # The whoami route stands in for an app upstream and gets an edge
       # secret like one; scripts/smoke.sh asserts this exact value arrives.
       WHOAMI_EDGE_SECRET: smoke-test-edge-secret-not-for-production-000
+      # The portal shows the smoke fixture, which scripts/smoke.sh checks:
+      # Markdown rendered, HTML comments stripped, template syntax not run.
+      EDGE_ANNOUNCEMENT_FILE: smoke.md
 
   authelia:
     environment:

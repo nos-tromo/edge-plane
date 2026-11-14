@@ -229,6 +229,16 @@ These were all hit in anger; don't "simplify" them away:
   Production ships only `caddy/conf.d/empty.caddy`; the whoami image is
   never bundled. The same class of trap is why `authcode/` is mounted as a
   single file rather than a directory (see the `edge-notify` bullet above).
+- The portal's announcement section renders the Markdown file that
+  `EDGE_ANNOUNCEMENT_FILE` names in `announcements/` (mounted as a directory
+  at `/srv/announcements`, the landing `templates` root — so file functions
+  reach nothing else; `docs/configuration.md#portal-announcement`). It is
+  read with `readFile`, **never `include`**: `include` runs the file as a
+  template, and `{{env "…_EDGE_SECRET"}}` in it would put the edge secrets
+  on every user's page — `scripts/smoke.sh` asserts the fixture's template
+  syntax stays text. The guard in `landing/index.html` (non-empty, `.md`,
+  exists, not a directory) must stay: a `readFile` error fails the whole
+  landing page.
 - `auth-audit` (`docs/audit.md`) has no network: it reads Authelia's
   database (`edge-state`, read-only mount, `mode=ro` connection) and the
   `authelia/` directory (read-only — a directory, so an editor's

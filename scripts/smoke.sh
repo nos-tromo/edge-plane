@@ -132,6 +132,21 @@ grep -q 'status-probe' <<<"$landing_body" \
   || fail "landing page is missing the status probe script"
 echo "ok: portal page (app grid + status probe)"
 
+# Announcement section: the dev overlay points EDGE_ANNOUNCEMENT_FILE at
+# announcements/smoke.md. Its Markdown must render, its HTML comment must be
+# stripped, and its template syntax must arrive as text: the file is read
+# with readFile, never run as a template, or {{env ...}} in it would put
+# Caddy's environment (the edge secrets) on the page.
+grep -q '<strong>smoke-announcement</strong>' <<<"$landing_body" \
+  || fail "portal announcement missing or not rendered as Markdown"
+grep -q 'smoke-hidden-comment' <<<"$landing_body" \
+  && fail "portal announcement leaked an HTML comment"
+grep -qF '{{env' <<<"$landing_body" \
+  || fail "portal announcement lost its literal template syntax"
+grep -q 'smoke-test-edge-secret-not-for-production-000' <<<"$landing_body" \
+  && fail "portal announcement evaluated template syntax (edge secret on the page)"
+echo "ok: portal announcement (Markdown rendered, comment stripped, no template evaluation)"
+
 # Vendored design tokens: served without auth (it's just CSS, not
 # sensitive), and reachable at an absolute path from under /auth-code too
 # (that page's handle rewrites every /auth-code/* path to index.html, so

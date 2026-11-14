@@ -1,4 +1,15 @@
-{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}{{$support := env "EDGE_SUPPORT_CONTACT"}}<!doctype html>
+{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}{{$support := env "EDGE_SUPPORT_CONTACT"}}
+{{- /* Announcement Markdown (docs/configuration.md#portal-announcement), read
+  from announcements/, the templates root set in caddy/Caddyfile. readFile,
+  never include: include runs the file as a template, and the environment it
+  could read holds the edge secrets. The guard keeps a bad name (empty, not
+  .md, missing, a directory) from failing the whole page, since a readFile
+  error aborts rendering; `and` stops at the first false, so fileStat only
+  runs on a path that exists. HTML comments are stripped so a comment-only
+  file stays hidden. */ -}}
+{{- $annFile := env "EDGE_ANNOUNCEMENT_FILE"}}{{$ann := ""}}
+{{- if and $annFile (hasSuffix ".md" $annFile) (fileExists $annFile) (not (fileStat $annFile).IsDir)}}{{$ann = regexReplaceAll "(?s)<!--.*?-->" (readFile $annFile) ""}}{{end -}}
+<!doctype html>
 <html lang="{{if $de}}de{{else}}en{{end}}">
 <head>
 <meta charset="utf-8">
@@ -129,6 +140,31 @@
          border-radius: 50%; margin-left: .5rem; background: var(--neutral); }
   .dot[data-state="online"] { background: var(--ok); }
   .dot[data-state="offline"] { background: var(--down); }
+  /* Announcement section: operator Markdown rendered by Caddy's `markdown`
+     template function (goldmark, GFM). One card in the tile surface; the
+     section title is the page's h1, so headings inside the Markdown step
+     down to --text-lg/--text-base. */
+  .announcement { background: var(--surface); border: 1px solid var(--border);
+                  border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+                  font-size: var(--text-sm); line-height: 1.6; overflow-wrap: anywhere; }
+  .announcement > :first-child { margin-top: 0; }
+  .announcement > :last-child { margin-bottom: 0; }
+  .announcement :is(h1, h2, h3, h4, h5, h6) { font-size: var(--text-base); font-weight: 600; margin: 1.25rem 0 .5rem; }
+  .announcement :is(h1, h2) { font-size: var(--text-lg); }
+  .announcement :is(ul, ol) { padding-left: 1.5rem; }
+  .announcement li:has(> input[type="checkbox"]) { list-style: none; }
+  .announcement a { color: var(--accent); }
+  .announcement code { font-family: var(--font-mono); font-size: var(--text-xs);
+                       background: var(--bg); border-radius: var(--radius-md); padding: 0 .25rem; }
+  .announcement pre { background: var(--bg); border: 1px solid var(--border);
+                      border-radius: var(--radius-md); padding: .75rem; overflow-x: auto; }
+  .announcement pre code { background: none; padding: 0; }
+  .announcement blockquote { margin: 0; padding-left: 1rem; color: var(--muted);
+                             border-left: .25rem solid var(--border); }
+  .announcement table { border-collapse: collapse; display: block; overflow-x: auto; }
+  .announcement :is(th, td) { border: 1px solid var(--border); padding: .25rem .5rem; text-align: left; }
+  .announcement hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+  .announcement img { max-width: 100%; height: auto; }
   /* Top bar: mirrors the apps' shared AppHeader geometry (identity/user
      menu + theme toggle on the right) so the entry page and everything
      behind it share one convention. */
@@ -260,6 +296,10 @@
     <li class="tile"><a class="tile-open" href="/grafana/"><span class="app">Grafana</span><span class="dot" data-probe="/grafana/"></span>
       <p>{{if $de}}Monitoring und Logs (nur Admins){{else}}Monitoring and logs (admins only){{end}}</p></a></li>
   </ul>
+  {{if trim $ann}}<h1 class="section" id="announcements-title">{{if $de}}Neuigkeiten{{else}}Announcements{{end}}</h1>
+  <section class="announcement" aria-labelledby="announcements-title">
+{{markdown $ann}}
+  </section>{{end}}
   <h1 class="section">{{if $de}}Einstellungen{{else}}Settings{{end}}</h1>
   <ul id="settings-grid" data-close-label="{{if $de}}Schließen{{else}}Close{{end}}">
     <li class="tile">
