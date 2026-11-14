@@ -147,6 +147,46 @@ grep -q 'smoke-test-edge-secret-not-for-production-000' <<<"$landing_body" \
   && fail "portal announcement evaluated template syntax (edge secret on the page)"
 echo "ok: portal announcement (Markdown rendered, comment stripped, no template evaluation)"
 
+# Information pages: info/<name>.md at /info/<name>, without a session (the
+# login page links the privacy notice). The fixture info/smoke.md must render
+# with its first heading as the title, lose its HTML comment, keep its
+# template syntax as text, and never echo a forged identity header.
+info_code=$(run_curl "unauthenticated info page" -o /dev/null -w '%{http_code}' \
+  -H 'Accept: text/html' "$BASE/info/smoke")
+[[ "$info_code" == "200" ]] || fail "expected 200 for unauthenticated /info/smoke, got: $info_code"
+info_body=$(run_curl "info page content" -H 'Accept: text/html' \
+  -H 'X-Auth-User: mallory' -H 'X-Auth-Name: Mallory Mallet' "$BASE/info/smoke")
+grep -q '<title>smoke-info</title>' <<<"$info_body" \
+  || fail "info page title is not the fixture's first heading"
+grep -q '<strong>smoke-info-page</strong>' <<<"$info_body" \
+  || fail "info page missing or not rendered as Markdown"
+grep -q 'smoke-hidden-comment' <<<"$info_body" \
+  && fail "info page leaked an HTML comment"
+grep -qF '{{env' <<<"$info_body" \
+  || fail "info page lost its literal template syntax"
+grep -q 'smoke-test-edge-secret-not-for-production-000' <<<"$info_body" \
+  && fail "info page evaluated template syntax (edge secret on the page)"
+grep -qi 'mallory' <<<"$info_body" && fail "info page echoed a forged identity header"
+# Only lowercase letters, digits and hyphens name a page: the *.example.md
+# templates, other letter cases and encoded path tricks are 404, and so is
+# the template itself on the landing route. Sent with the session so that a
+# request falling through to the landing route also answers 404, not a
+# login redirect.
+for bad in /info/privacy.example /info/Smoke /info/..%2fannouncements%2fsmoke /info/ /info.html; do
+  bad_code=$(run_curl "info page $bad" -b "$JAR" -o /dev/null -w '%{http_code}' "$BASE$bad")
+  [[ "$bad_code" == "404" ]] || fail "expected 404 for $bad, got: $bad_code"
+done
+# The portal footer links exactly the known pages that exist on this host.
+for slug in privacy ai accessibility terms help; do
+  page_code=$(run_curl "info page $slug" -o /dev/null -w '%{http_code}' "$BASE/info/$slug")
+  if grep -q "href=\"/info/$slug\"" <<<"$landing_body"; then
+    [[ "$page_code" == "200" ]] || fail "portal footer links /info/$slug, which answers $page_code"
+  else
+    [[ "$page_code" == "404" ]] || fail "/info/$slug answers $page_code, but the portal footer does not link it"
+  fi
+done
+echo "ok: information pages (public, Markdown rendered, no template evaluation, strict names, footer links)"
+
 # Vendored design tokens: served without auth (it's just CSS, not
 # sensitive), and reachable at an absolute path from under /auth-code too
 # (that page's handle rewrites every /auth-code/* path to index.html, so

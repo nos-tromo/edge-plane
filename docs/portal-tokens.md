@@ -1,6 +1,6 @@
 # Portal design tokens
 
-The build-free portal pages (`landing/index.html`, `authcode/index.html`)
+The build-free portal pages (`landing/index.html`, `landing/info.html`, `authcode/index.html`)
 link a vendored copy of `@infra/ui`'s plain-CSS design tokens,
 `landing/tokens.css` — the same background/foreground/muted/border/primary/
 danger custom properties the React frontends get via Tailwind, plus its
@@ -78,7 +78,7 @@ file.
 ## Enforcing the dimensional scale
 
 `scripts/check-no-literal-dimensions.sh` (run in CI, see
-`.github/workflows/ci.yml`) fails if either portal page's `font-size`, the
+`.github/workflows/ci.yml`) fails if any portal page's `font-size`, the
 `font` shorthand, or any `border-radius` property (shorthand or longhand)
 resolves to anything other than one of the eight tokens above, a CSS-wide
 keyword (`inherit`/`initial`/`unset`/`revert`/`revert-layer`), or the

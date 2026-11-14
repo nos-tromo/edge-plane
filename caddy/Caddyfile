@@ -184,6 +184,23 @@ https://{$EDGE_HOST}:443 {
 		file_server
 	}
 
+	# Information pages (docs/configuration.md#portal-information-pages):
+	# the operator's Markdown in info/, e.g. the privacy notice the Authelia
+	# login page links to. Deliberately unauthenticated, since that notice is
+	# due before the login collects anything. The rewrite pins every path to
+	# the template, whose file functions read /srv/portal/info only; it shows
+	# no identity and answers 404 to any name other than lowercase letters,
+	# digits and hyphens, so the *.example.md templates never render.
+	@info path /info/*
+	handle @info {
+		root * /srv/landing
+		rewrite * /info.html
+		templates {
+			root /srv/portal/info
+		}
+		file_server
+	}
+
 	# Dev-only extra routes land here via the compose override
 	# (production ships only empty.caddy in this directory).
 	import /etc/caddy/conf.d/*.caddy
@@ -191,14 +208,15 @@ https://{$EDGE_HOST}:443 {
 	# Landing page (authenticated) for everything else. `templates`
 	# renders the signed-in identity (X-Auth-User, injected by authed)
 	# into the static HTML server-side. Its file functions read from
-	# /srv/announcements only (the announcement Markdown): nothing else in
-	# the container, such as the CA key on /data, is reachable through
-	# EDGE_ANNOUNCEMENT_FILE, and the .md files are never served directly.
+	# /srv/portal only (announcements/ and info/, both Markdown): nothing
+	# else in the container, such as the CA key on /data, is reachable
+	# through EDGE_ANNOUNCEMENT_FILE, and the .md files are never served
+	# directly.
 	handle {
 		import authed
 		root * /srv/landing
 		templates {
-			root /srv/announcements
+			root /srv/portal
 		}
 		file_server
 	}

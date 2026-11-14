@@ -10,7 +10,7 @@ would otherwise bury it.
 
 | Document | What it covers |
 |---|---|
-| [configuration.md](configuration.md) | Every environment variable with its default, the UI-language switch, corporate-proxy bypass |
+| [configuration.md](configuration.md) | Every environment variable with its default, the UI-language switch, the portal announcement and information pages (privacy notice, AI notice and the other templates in `info/`), corporate-proxy bypass |
 | [user-accounts.md](user-accounts.md) | Provisioning users, the first-start storage key and how to recover from rotating it, self-service password change, admin-mediated resets, the second factor (TOTP), session lifetimes |
 | [tls-runbook.md](tls-runbook.md) | The two certificate sources — Caddy's internal CA and an org-issued PEM pair — client trust distribution, the `EDGE_HOST` caveat, recovery after `make nuke` |
 | [audit.md](audit.md) | What edge-plane writes to the data-protection audit log: login attempts from Authelia's authentication log, account changes (`make totp`, `authelia/users.yml`), the `auth-audit` service and how it fails closed |
