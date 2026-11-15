@@ -28,6 +28,7 @@ account changes and login attempts ([audit.md](audit.md)).
 | `RESPONSE_LANGUAGE` | `en` | Landing-page UI language (`en` \| `de`) — see below |
 | `EDGE_SUPPORT_CONTACT` | unset → tile hidden | Support contact rendered on the portal's "report a problem" tile. Never commit a real value |
 | `EDGE_ANNOUNCEMENT_FILE` | `announcement.md`; empty → section hidden | Markdown file in `announcements/` rendered as the portal's announcement section — see below |
+| `EDGE_PRIVACY_POLICY_LINK` | `false` | `true` adds a link to `/info/privacy` on the Authelia login page; set it once `info/privacy.md` exists — see [Portal information pages](#portal-information-pages) |
 | `EXTRA_NO_PROXY` | unset | Extra hostnames to exempt from a corporate proxy — see below |
 | `EDGE_SESSION_EXPIRATION` | `12h` | Absolute session lifetime — see [user-accounts.md](user-accounts.md#session-behaviour) |
 | `EDGE_SESSION_INACTIVITY` | `4h` | Idle timeout before re-login |
@@ -102,6 +103,55 @@ Content rules:
 - Template syntax (`{{ ... }}`) is shown as text, never run: the file is read
   with `readFile`, not `include`, so it cannot pull Caddy's environment (the
   edge secrets) into the page.
+
+## Portal information pages
+
+Notices users must be able to read, such as a privacy notice, an AI notice
+or an accessibility statement, are Markdown files in `info/`. Caddy serves
+`info/<name>.md` at `https://<EDGE_HOST>/info/<name>`, **without login**: a
+privacy notice is due before the login collects anything. The portal and
+every information page end in a footer that links the five known pages,
+each only when its file exists:
+
+| File | Footer link (de / en) | Template |
+|---|---|---|
+| `info/privacy.md` | Datenschutz / Privacy | `info/privacy.example.md` |
+| `info/ai.md` | KI-Hinweise / AI notice | `info/ai.example.md` |
+| `info/accessibility.md` | Barrierefreiheit / Accessibility | `info/accessibility.example.md` |
+| `info/terms.md` | Nutzungshinweise / Terms of use | `info/terms.example.md` |
+| `info/help.md` | Hilfe / Help | `info/help.example.md` |
+
+The texts are per host and never committed: everything in `info/` except
+the `*.example.md` templates and the smoke-test fixture `smoke.md` is
+gitignored. The templates are German drafts with `[placeholders]`. They
+carry the release's defaults (retention periods, session lifetimes) next to
+the variables that change them, and an operator note in an HTML comment.
+They state no legal basis: the operator decides that (deploy ADR 0003).
+
+To publish one:
+
+1. Copy the template, e.g. `cp info/privacy.example.md info/privacy.md`, and
+   fill in every placeholder. Check each value marked "(prüfen)" against this
+   host's `.env` files.
+2. Have the text approved, then reload the portal: the footer link appears
+   on the next page load, without a restart.
+3. For the privacy notice, set `EDGE_PRIVACY_POLICY_LINK=true` and run
+   `make up`. The Authelia login page then links `/info/privacy`. Its
+   acceptance dialog stays off: Authelia records an acceptance only in the
+   browser's `localStorage`, so it proves nothing.
+
+Any other `info/<name>.md` is served too, unlinked, e.g. a help page per
+app linked from `help.md`. Content rules:
+
+- A name is lowercase letters, digits and hyphens. Anything else, including
+  the `*.example.md` templates, answers 404.
+- Start with a `#` heading: it becomes the page title. The same Markdown
+  rules as for the [announcement](#portal-announcement) apply: HTML comments
+  are removed, raw HTML passes through, nothing external is loaded,
+  template syntax stays text.
+- **The pages are public on the network.** Put nothing in `info/` that only
+  signed-in users may read.
+- The files must be readable by the container (mode `0644`).
 
 ## Proxy bypass
 

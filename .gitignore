@@ -9,6 +9,9 @@ certs/*
 announcements/*
 !announcements/announcement.md
 !announcements/smoke.md
+info/*
+!info/*.example.md
+!info/smoke.md
 .DS_Store
 *.code-workspace
 __pycache__/

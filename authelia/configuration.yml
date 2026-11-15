@@ -90,6 +90,16 @@ session:
       authelia_url: 'https://{{ env "EDGE_HOST" }}/auth'
       default_redirection_url: 'https://{{ env "EDGE_HOST" }}/'
 
+# Login-page link to the operator's privacy notice, served without login by
+# the gateway (info/privacy.md -> /info/privacy), because the login itself
+# already collects data. Off until EDGE_PRIVACY_POLICY_LINK=true. No
+# acceptance dialog: Authelia keeps that only in the browser's localStorage,
+# so it proves nothing, and the notice informs rather than asks for consent.
+privacy_policy:
+  enabled: '{{ env "EDGE_PRIVACY_POLICY_LINK" | default "false" }}'
+  require_user_acceptance: false
+  policy_url: 'https://{{ env "EDGE_HOST" }}/info/privacy'
+
 storage:
   local:
     path: /data/db.sqlite3

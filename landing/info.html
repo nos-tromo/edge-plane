@@ -1,0 +1,174 @@
+{{$de := eq (env "RESPONSE_LANGUAGE") "de"}}
+{{- /* Information page (docs/configuration.md#portal-information-pages),
+  served without login at /info/<name> from info/<name>.md. The Caddyfile
+  rewrites every /info/* path to this file and sets info/ as the templates
+  root, so the file functions below reach nothing else. The name comes from
+  the original request path: anything but lowercase letters, digits and
+  hyphens is a 404, which keeps the *.example.md templates and path tricks
+  out. readFile, never include: include runs the file as a template, and the
+  environment it could read holds the edge secrets. `or` stops at the first
+  true, so fileStat only runs on a path that exists. The page shows no
+  identity: it is public, and the gateway stripped the X-Auth-* headers. */ -}}
+{{- $slug := trimPrefix "/info/" .OriginalReq.URL.Path}}
+{{- if not (regexMatch "^[a-z0-9-]+$" $slug)}}{{httpError 404}}{{end}}
+{{- $file := printf "%s.md" $slug}}
+{{- if or (not (fileExists $file)) (fileStat $file).IsDir}}{{httpError 404}}{{end}}
+{{- $md := regexReplaceAll "(?s)<!--.*?-->" (readFile $file) ""}}
+{{- $title := regexReplaceAll "^#[ \t]+" (regexFind "(?m)^#[ \t]+\\S.*$" $md) "" | trim}}
+{{- if not $title}}{{$title = "Information"}}{{end -}}
+<!doctype html>
+<html lang="{{if $de}}de{{else}}en{{end}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{$title | html}}</title>
+<script>
+  /* infra-ui theme: stamp explicit choice before first paint (FOUC guard) */
+  ;(function () {
+    try {
+      var t = localStorage.getItem('infra-ui-theme')
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+    } catch (e) {}
+  })()
+</script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  /* The portal's aliases and chrome (landing/index.html), trimmed to what
+     this page uses: top bar, canvas, the Markdown body and the footer. */
+  :root {
+    --bg: var(--color-background);
+    --surface: var(--color-muted);
+    --border: var(--color-border);
+    --text: var(--color-foreground);
+    --muted: var(--color-muted-foreground);
+    --chrome: var(--color-chrome);
+    --accent: hsl(217 91% 45%);
+  }
+  :root[data-theme='dark'] { --accent: #8ab4f8; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) { --accent: #8ab4f8; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: var(--font-sans); background: var(--chrome);
+         color: var(--text); margin: 0; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; }
+  button { font-family: inherit; }
+  header.topbar { width: 100%; height: 3rem; font-size: var(--text-sm); color: var(--muted); }
+  .topbar-inner { width: min(64rem, 100% - 3rem); height: 100%; margin: 0 auto;
+                  display: flex; align-items: center; gap: .75rem; }
+  .topbar-inner .spacer { flex: 1; }
+  a.home { color: var(--muted); text-decoration: none; }
+  a.home:hover { color: var(--accent); }
+  #theme-toggle { display: inline-flex; align-items: center; justify-content: center;
+                  width: 2rem; height: 2rem; background: none; border: none;
+                  color: var(--muted); font: inherit;
+                  cursor: pointer; border-radius: var(--radius-lg); }
+  #theme-toggle:hover { background: var(--surface); color: var(--text); }
+  #theme-toggle svg { display: none; width: 1rem; height: 1rem; }
+  #theme-toggle[data-mode="system"] .icon-system,
+  #theme-toggle[data-mode="light"] .icon-light,
+  #theme-toggle[data-mode="dark"] .icon-dark { display: block; }
+  .canvas { width: 100%; flex: 1; background: var(--bg);
+            border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; align-items: center; }
+  /* Long-form text: a reading measure, not the tile grid's 64rem. */
+  main { width: min(48rem, 100% - 3rem); padding: 3rem 0; line-height: 1.6;
+         overflow-wrap: anywhere; }
+  main h1 { font-size: var(--text-2xl); font-weight: 600; line-height: 1.25; margin: 0 0 1.5rem; }
+  main h2 { font-size: var(--text-lg); font-weight: 600; margin: 2rem 0 .5rem; }
+  main :is(h3, h4, h5, h6) { font-size: var(--text-base); font-weight: 600; margin: 1.5rem 0 .5rem; }
+  main :is(ul, ol) { padding-left: 1.5rem; }
+  main li:has(> input[type="checkbox"]) { list-style: none; }
+  main a { color: var(--accent); }
+  main code { font-family: var(--font-mono); font-size: var(--text-xs);
+              background: var(--surface); border-radius: var(--radius-md); padding: 0 .25rem; }
+  main pre { background: var(--surface); border: 1px solid var(--border);
+             border-radius: var(--radius-md); padding: .75rem; overflow-x: auto; }
+  main pre code { background: none; padding: 0; }
+  main blockquote { margin: 0; padding-left: 1rem; color: var(--muted);
+                    border-left: .25rem solid var(--border); }
+  /* Cells hyphenate instead of inheriting overflow-wrap: anywhere, which
+     would shrink a narrow screen's columns to a few letters and split words
+     anywhere; a table too wide even so scrolls sideways. Header cells keep
+     their words whole, which also keeps a column of short values from being
+     squeezed until its header splits. */
+  main table { border-collapse: collapse; display: block; overflow-x: auto; }
+  main :is(th, td) { border: 1px solid var(--border); padding: .25rem .5rem; text-align: left; vertical-align: top;
+                     overflow-wrap: normal; hyphens: auto; }
+  main th { hyphens: manual; }
+  main hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  main img { max-width: 100%; height: auto; }
+  /* Same footer as landing/index.html. */
+  footer.site-footer { width: min(64rem, 100% - 3rem); margin-top: auto; padding: 1.5rem 0 2rem;
+                       border-top: 1px solid var(--border); font-size: var(--text-sm); }
+  footer.site-footer nav { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
+  footer.site-footer a { color: var(--muted); text-decoration: none; }
+  footer.site-footer a:hover { color: var(--accent); text-decoration: underline; }
+  footer.site-footer a[aria-current="page"] { color: var(--text); }
+</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="topbar-inner">
+  <a class="home" href="/">&larr; {{if $de}}Zur Startseite{{else}}Back to the portal{{end}}</a>
+  <span class="spacer"></span>
+  <button id="theme-toggle" type="button" aria-label="{{if $de}}Design: System{{else}}Theme: system{{end}}" title="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-system="{{if $de}}Design: System{{else}}Theme: system{{end}}" data-label-light="{{if $de}}Design: Hell{{else}}Theme: light{{end}}" data-label-dark="{{if $de}}Design: Dunkel{{else}}Theme: dark{{end}}" data-mode="system"><svg class="icon-system" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 0 0 12.5Z" fill="currentColor"/></svg><svg class="icon-light" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 .75v2.5M8 12.75v2.5M.75 8h2.5M12.75 8h2.5M2.87 2.87l1.77 1.77M11.36 11.36l1.77 1.77M13.13 2.87l-1.77 1.77M4.64 11.36l-1.77 1.77" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="icon-dark" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.54 9.83A6.25 6.25 0 1 1 6.17 2.46a5 5 0 0 0 7.37 7.37Z" fill="currentColor"/></svg></button>
+ </div>
+</header>
+<div class="canvas">
+<main>
+{{markdown $md}}
+</main>
+{{- $p := fileExists "privacy.md"}}{{$ai := fileExists "ai.md"}}{{$a11y := fileExists "accessibility.md"}}{{$t := fileExists "terms.md"}}{{$h := fileExists "help.md"}}
+{{- if or $p $ai $a11y $t $h}}
+<footer class="site-footer">
+  <nav aria-label="{{if $de}}Informationen{{else}}Information{{end}}">
+    {{- if $p}}<a href="/info/privacy"{{if eq $slug "privacy"}} aria-current="page"{{end}}>{{if $de}}Datenschutz{{else}}Privacy{{end}}</a>{{end}}
+    {{- if $ai}}<a href="/info/ai"{{if eq $slug "ai"}} aria-current="page"{{end}}>{{if $de}}KI-Hinweise{{else}}AI notice{{end}}</a>{{end}}
+    {{- if $a11y}}<a href="/info/accessibility"{{if eq $slug "accessibility"}} aria-current="page"{{end}}>{{if $de}}Barrierefreiheit{{else}}Accessibility{{end}}</a>{{end}}
+    {{- if $t}}<a href="/info/terms"{{if eq $slug "terms"}} aria-current="page"{{end}}>{{if $de}}Nutzungshinweise{{else}}Terms of use{{end}}</a>{{end}}
+    {{- if $h}}<a href="/info/help"{{if eq $slug "help"}} aria-current="page"{{end}}>{{if $de}}Hilfe{{else}}Help{{end}}</a>{{end}}
+  </nav>
+</footer>
+{{- end}}
+</div>
+<script>
+/* theme-toggle: the same tri-state control as landing/index.html */
+(function () {
+  var KEY = 'infra-ui-theme';
+  var btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  function current() {
+    try {
+      var t = localStorage.getItem(KEY);
+      return (t === 'light' || t === 'dark') ? t : 'system';
+    } catch (e) { return 'system'; }
+  }
+  function apply(state) {
+    if (state === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.dataset.theme = state;
+    }
+    var label = btn.dataset['label' + state.charAt(0).toUpperCase() + state.slice(1)];
+    btn.dataset.mode = state;
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+  }
+  function set(state) {
+    try {
+      if (state === 'system') { localStorage.removeItem(KEY); }
+      else { localStorage.setItem(KEY, state); }
+    } catch (e) {}
+    apply(state);
+  }
+  var NEXT = { system: 'light', light: 'dark', dark: 'system' };
+  apply(current());
+  btn.addEventListener('click', function () { set(NEXT[current()]); });
+  window.addEventListener('storage', function (ev) {
+    if (ev.key === KEY || ev.key === null) apply(current());
+  });
+})();
+</script>
+</body>
+</html>

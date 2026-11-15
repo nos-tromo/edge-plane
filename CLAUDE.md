@@ -100,7 +100,7 @@ records a canonical source + pinned ref, either a commit or a release tag
 lacks a stable ref) — never hand-edit that file either; re-vendor it per
 `docs/portal-tokens.md`'s "Re-vendoring" section and the file's own
 header comment. `scripts/check-no-literal-dimensions.sh` guards the other half of
-that vendoring: it fails if either portal page's `font-size`, the `font`
+that vendoring: it fails if any portal page's `font-size`, the `font`
 shorthand, or any `border-radius` (including longhands) resolves to
 anything but one of the vendored `--text-*`/`--radius-*` tokens, a CSS-wide
 keyword, or the `border-radius: 50%` circle exception — see
@@ -231,14 +231,26 @@ These were all hit in anger; don't "simplify" them away:
   single file rather than a directory (see the `edge-notify` bullet above).
 - The portal's announcement section renders the Markdown file that
   `EDGE_ANNOUNCEMENT_FILE` names in `announcements/` (mounted as a directory
-  at `/srv/announcements`, the landing `templates` root — so file functions
-  reach nothing else; `docs/configuration.md#portal-announcement`). It is
+  at `/srv/portal/announcements`; `/srv/portal`, a rootfs path, is the
+  landing `templates` root — so file functions reach only that and
+  `info/`; `docs/configuration.md#portal-announcement`). It is
   read with `readFile`, **never `include`**: `include` runs the file as a
   template, and `{{env "…_EDGE_SECRET"}}` in it would put the edge secrets
   on every user's page — `scripts/smoke.sh` asserts the fixture's template
   syntax stays text. The guard in `landing/index.html` (non-empty, `.md`,
   exists, not a directory) must stay: a `readFile` error fails the whole
   landing page.
+- `/info/<name>` serves `info/<name>.md` (mounted at `/srv/portal/info`)
+  through `landing/info.html`, **without login** — the privacy notice the
+  Authelia login page links (`EDGE_PRIVACY_POLICY_LINK`) is due before
+  the login (`docs/configuration.md#portal-information-pages`). That route's
+  templates root is `info/` alone, so the public page can't reach the
+  announcements; the name must match `^[a-z0-9-]+$` (else `httpError 404`),
+  which is what keeps the committed `*.example.md` templates unserved; the
+  same `readFile`-never-`include` rule applies, and the page renders no
+  identity. Host texts are gitignored; only the German templates and the
+  `smoke.md` fixture are committed. The footer on both pages links the five
+  known names only when their file exists — `scripts/smoke.sh` checks that.
 - `auth-audit` (`docs/audit.md`) has no network: it reads Authelia's
   database (`edge-state`, read-only mount, `mode=ro` connection) and the
   `authelia/` directory (read-only — a directory, so an editor's

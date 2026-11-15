@@ -108,10 +108,13 @@ services:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ../caddy/conf.d:/etc/caddy/conf.d:ro
       - ../landing:/srv/landing:ro
-      # A directory bind, not a file bind (edits stay visible after an editor
-      # renames a new file over the old one), on a rootfs path rather than
-      # nested inside the /srv/landing bind.
-      - ../announcements:/srv/announcements:ro
+      # Portal Markdown, read by the landing templates and never served as
+      # files: announcements/ for the announcement section, info/ for the
+      # /info pages. Directory binds, not file binds (edits stay visible
+      # after an editor renames a new file over the old one), as siblings
+      # under /srv/portal, a rootfs path: neither nests inside another bind.
+      - ../announcements:/srv/portal/announcements:ro
+      - ../info:/srv/portal/info:ro
       - ../certs:/etc/caddy/certs:ro
       # File bind + sibling volume, NOT a directory bind with the volume
       # nested inside it: Docker Desktop (VirtioFS, Engine 29 line) silently
@@ -162,6 +165,9 @@ services:
       # Policy for every protected route (two_factor | one_factor; default
       # two_factor). The one-time-code viewer always stays one_factor.
       EDGE_AUTH_POLICY: ${EDGE_AUTH_POLICY:-two_factor}
+      # Login-page link to the privacy notice at /info/privacy; true once
+      # info/privacy.md exists on this host.
+      EDGE_PRIVACY_POLICY_LINK: ${EDGE_PRIVACY_POLICY_LINK:-false}
       AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET:?set in .env}
       AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY:?set in .env}
       AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET:?set in .env}

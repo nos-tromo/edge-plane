@@ -1,14 +1,14 @@
 {{$de := eq (env "RESPONSE_LANGUAGE") "de"}}{{$support := env "EDGE_SUPPORT_CONTACT"}}
 {{- /* Announcement Markdown (docs/configuration.md#portal-announcement), read
-  from announcements/, the templates root set in caddy/Caddyfile. readFile,
-  never include: include runs the file as a template, and the environment it
-  could read holds the edge secrets. The guard keeps a bad name (empty, not
-  .md, missing, a directory) from failing the whole page, since a readFile
-  error aborts rendering; `and` stops at the first false, so fileStat only
-  runs on a path that exists. HTML comments are stripped so a comment-only
-  file stays hidden. */ -}}
-{{- $annFile := env "EDGE_ANNOUNCEMENT_FILE"}}{{$ann := ""}}
-{{- if and $annFile (hasSuffix ".md" $annFile) (fileExists $annFile) (not (fileStat $annFile).IsDir)}}{{$ann = regexReplaceAll "(?s)<!--.*?-->" (readFile $annFile) ""}}{{end -}}
+  from announcements/ under /srv/portal, the templates root set in
+  caddy/Caddyfile. readFile, never include: include runs the file as a
+  template, and the environment it could read holds the edge secrets. The
+  guard keeps a bad name (empty, not .md, missing, a directory) from failing
+  the whole page, since a readFile error aborts rendering; `and` stops at the
+  first false, so fileStat only runs on a path that exists. HTML comments are
+  stripped so a comment-only file stays hidden. */ -}}
+{{- $annFile := env "EDGE_ANNOUNCEMENT_FILE"}}{{$annPath := printf "announcements/%s" $annFile}}{{$ann := ""}}
+{{- if and $annFile (hasSuffix ".md" $annFile) (fileExists $annPath) (not (fileStat $annPath).IsDir)}}{{$ann = regexReplaceAll "(?s)<!--.*?-->" (readFile $annPath) ""}}{{end -}}
 <!doctype html>
 <html lang="{{if $de}}de{{else}}en{{end}}">
 <head>
@@ -261,6 +261,14 @@
   #pwmsg { margin: 0; }
   #pwmsg[data-state="error"] { color: var(--down); }
   #pwmsg[data-state="ok"] { color: var(--ok); }
+  /* Links to the information pages (info/<name>.md, served at /info/<name>
+     without login); the same footer closes landing/info.html. margin-top:
+     auto keeps it at the canvas's bottom edge on a short page. */
+  footer.site-footer { width: min(64rem, 100% - 3rem); margin-top: auto; padding: 1.5rem 0 2rem;
+                       border-top: 1px solid var(--border); font-size: var(--text-sm); }
+  footer.site-footer nav { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
+  footer.site-footer a { color: var(--muted); text-decoration: none; }
+  footer.site-footer a:hover { color: var(--accent); text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -339,6 +347,20 @@
     </li>{{end}}
   </ul>
 </main>
+{{- /* Information-page links, each only when its info/<name>.md exists
+  (docs/configuration.md#portal-information-pages). */ -}}
+{{- $p := fileExists "info/privacy.md"}}{{$ai := fileExists "info/ai.md"}}{{$a11y := fileExists "info/accessibility.md"}}{{$t := fileExists "info/terms.md"}}{{$h := fileExists "info/help.md"}}
+{{- if or $p $ai $a11y $t $h}}
+<footer class="site-footer">
+  <nav aria-label="{{if $de}}Informationen{{else}}Information{{end}}">
+    {{- if $p}}<a href="/info/privacy">{{if $de}}Datenschutz{{else}}Privacy{{end}}</a>{{end}}
+    {{- if $ai}}<a href="/info/ai">{{if $de}}KI-Hinweise{{else}}AI notice{{end}}</a>{{end}}
+    {{- if $a11y}}<a href="/info/accessibility">{{if $de}}Barrierefreiheit{{else}}Accessibility{{end}}</a>{{end}}
+    {{- if $t}}<a href="/info/terms">{{if $de}}Nutzungshinweise{{else}}Terms of use{{end}}</a>{{end}}
+    {{- if $h}}<a href="/info/help">{{if $de}}Hilfe{{else}}Help{{end}}</a>{{end}}
+  </nav>
+</footer>
+{{- end}}
 </div>
 <script>
 /* status-probe */
