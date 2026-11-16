@@ -79,7 +79,8 @@ jobs:
             authelia config validate --config /config/configuration.yml
 
   audit-tests:
-    # auth-audit (audit/edge_audit.py) against synthetic Authelia databases
+    # auth-audit (audit/edge_audit.py) and auth-retention (audit/auth_retention.py,
+    # audit/auth_sweep.py) against synthetic Authelia databases
     # built with the pinned image's schema: stdlib unittest, nothing
     # installed. Once on the runner (with bash, for scripts/audit-admin.sh),
     # once in the pinned python image as the container runs it.
@@ -115,13 +116,13 @@ jobs:
           done
           cp authelia/users.template.yml authelia/users.yml
           make up-dev
-      - name: wait for caddy, authelia and auth-audit healthy
+      - name: wait for caddy, authelia, auth-audit and auth-retention healthy
         run: |
           ok=0
-          for i in $(seq 1 60); do
+          for i in $(seq 1 90); do
             healthy=$(docker compose --env-file .env -f docker/compose.yaml ps --format '{{.Service}} {{.Health}}' \
-              | grep -cE '^(caddy|authelia|auth-audit) healthy$' || true)
-            if [ "$healthy" -ge 3 ]; then
+              | grep -cE '^(caddy|authelia|auth-audit|auth-retention) healthy$' || true)
+            if [ "$healthy" -ge 4 ]; then
               ok=1
               break
             fi

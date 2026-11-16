@@ -4,6 +4,7 @@
 ###   - Caddy (TLS on :443, path routing, forward_auth, X-Auth-User injection)
 ###   - Authelia (identity; file users, SQLite on edge-state)
 ###   - auth-audit (login attempts and account changes as audit events)
+###   - auth-retention (deletes Authelia's login records after a period)
 ###   - External volumes edge-state (Authelia state), edge-ca (internal CA)
 ###     and edge-audit-state (auth-audit's export position)
 ###
@@ -244,6 +245,57 @@ services:
     volumes:
       - edge-audit-state:/state
     restart: "no"
+
+  # Deletes Authelia's login records EDGE_AUTH_RETENTION_DAYS after they were
+  # recorded or ended (docs/audit.md#retention): the authentication log once
+  # auth-audit exported it, one-time codes, identity verifications, the TOTP
+  # history and ended bans. Every batch is a `delete` audit event written
+  # before it commits. The only writer to Authelia's database besides
+  # Authelia; auth-audit stays read-only. Stdlib Python mounted read-only,
+  # no network.
+  auth-retention:
+    <<: *hardened
+    image: docker.io/library/python:3.12.16-alpine3.24@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+    logging: *default-logging
+    # The owner of db.sqlite3 and its directory (Authelia runs as root):
+    # SQLite writes the file and creates its rollback journal beside it. With
+    # every capability dropped, root here is only that owner, without
+    # DAC_OVERRIDE.
+    user: "0:0"
+    read_only: true
+    network_mode: none
+    tmpfs:
+      - /tmp:size=1m
+    entrypoint: ["python", "/app/auth_retention.py"]
+    command: ["serve"]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      AUDIT_OUTPUT: container
+      AUDIT_AUTHELIA_DB: /authelia-state/db.sqlite3
+      AUDIT_STATE_DIR: /state
+      # Days after which a record is deleted; `off` keeps them (development
+      # only; logged as a warning and stated in the audit log).
+      EDGE_AUTH_RETENTION_DAYS: ${EDGE_AUTH_RETENTION_DAYS:-30}
+      EDGE_AUTH_RETENTION_INTERVAL_S: ${EDGE_AUTH_RETENTION_INTERVAL_S:-3600}
+    volumes:
+      - ../audit:/app:ro
+      - ../VERSION:/etc/edge-plane/VERSION:ro
+      - edge-state:/authelia-state
+      # auth-audit's export position: the authentication log is deleted only
+      # up to the row it exported.
+      - edge-audit-state:/state:ro
+    depends_on:
+      authelia:
+        condition: service_healthy
+      auth-audit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/auth_retention.py", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
 
 volumes:
   edge-state:

@@ -9,12 +9,13 @@ the chain verifier and who may read the trail are obs-plane's — see
 [obs-plane's `docs/audit.md`](../../obs-plane/docs/audit.md). This page covers
 what edge-plane writes.
 
-Two sources reach the audit lane from this repo:
+Three sources reach the audit lane from this repo:
 
 | Source | Container | What |
 |---|---|---|
 | The gateway's access log | `caddy` | one line per request: account, path (query cut), status, client address, request id — see [identity-contract.md](identity-contract.md#request-id-and-access-log) |
 | `auth-audit` | `auth-audit` | the events below, as hash chains with `service: edge-plane` |
+| `auth-retention` | `auth-retention` | one `delete` event per batch of Authelia records it deletes, as its own chain with `service: edge-plane` — see [Retention](#retention) |
 
 ## The auth-audit service
 
@@ -117,10 +118,119 @@ file, or remove it to export the whole log again.
 ### The table is Authelia's
 
 `auth-audit` never writes to Authelia's database. Authelia 4.39.20 never
-deletes from `authentication_logs` either: it grows by one row (a few hundred
-bytes) per attempt, for as long as `edge-state` lives, holding account names
-and client addresses outside the audit lane's retention. Pruning it is not
-part of this change.
+deletes from `authentication_logs` either; `auth-retention` does, and only
+rows `auth-audit` has already exported (see [Retention](#retention)).
+
+## Retention
+
+Authelia 4.39.20 never deletes the rows that log who signed in or tried to,
+from which address. Left alone they stay for as long as `edge-state` lives,
+outside the audit lane's own retention, and a privacy notice could state no
+period for them. `auth-retention` deletes them `EDGE_AUTH_RETENTION_DAYS`
+(default 30) after they were recorded or ended. It runs
+`audit/auth_retention.py` (stdlib Python, the same mounted directory and
+pinned image as `auth-audit`), with no capabilities, a read-only root
+filesystem and no network.
+
+| Table | What it holds | Age counted from | Never deleted |
+|---|---|---|---|
+| `authentication_logs` | every login attempt: account, client address, factor | `time` | a row `auth-audit` has not exported yet (below) |
+| `one_time_code` | the codes behind the portal's password change: account, issuing and redeeming address | `expires` | a code that is still valid |
+| `identity_verification` | identity-verification tokens: account, addresses | `exp` | — |
+| `totp_history` | the TOTP codes seen used (replay protection): account, time | `created_at` | — |
+| `banned_user`, `banned_ip` | bans after repeated failures: account or address | when the ban ended: the earlier of its revocation (`expired`) and its expiry (`expires`) | a ban in force, including a permanent one |
+
+Authelia reads these tables back only for minutes: the regulation looks at
+the attempts of its `find_time` window, the replay check at one code step,
+codes and tokens are looked up by their own identifier (a deleted one is
+refused), and a ban counts only while it is in force. These reads were checked
+in the pinned image's `internal/storage/sql_provider_queries.go`. If
+`regulation.find_time` is ever configured longer than the period, raise the
+period.
+
+### Only after the export
+
+A login attempt is deleted only when it is in the audit trail already: up to
+the position `auth-audit` keeps in `auth-export.json` (`edge-audit-state`,
+mounted read-only), and only when that position belongs to this database.
+When the position is missing, damaged, belongs to another database or is
+ahead of the log (a restored backup, which `auth-audit` exports again), no
+attempt is deleted; the other tables are still swept. Deleting never confuses
+the export: `auth-audit` detects a replaced or restored database by the
+first migration and by `sqlite_sequence`, and a `DELETE` lowers neither. Its
+ids are never reused.
+
+### Records
+
+Each batch of at most 200 rows is deleted in one short transaction that
+writes its record before it commits, and rolls back when the record cannot be
+written:
+
+- `delete` / `retention.sweep`, `actor` `{user: null, via: "system"}`,
+  `target` `{kind: <table>, ids, count, container: "authelia"}` and
+  `criteria` `{store, period_days, cutoff, age_from}`, plus
+  `exported_through` (the export position) for `authentication_logs`. Those
+  ids are the `log_id`s of the exported `auth` events.
+- A commit that fails after its record was written is rolled back and
+  recorded again with `outcome: error` and `parent_event_id` pointing at it.
+  A crash between record and commit leaves a record of a batch that was
+  not deleted; it is deleted and recorded again in the next round.
+- `admin` / `retention.held` (`criteria.reason`: `not_exported`,
+  `export_position_missing`, `export_position_invalid`,
+  `export_position_other_database`, `export_position_ahead`),
+  `retention.refused` (`schema` or `time_format`) and `retention.resumed`,
+  each once when the state changes.
+- `admin` / `config.audit` at start: the tables, `retention_days` (`null`
+  when off), the interval, what each age counts from, the verified schema
+  versions.
+
+No record carries an account name, an address, a code or the time of a
+single row.
+
+### Locking and what stays on disk
+
+Authelia keeps running and writes the same database, in SQLite's rollback
+journal mode. While a transaction here holds the write lock, Authelia's
+insert of a login attempt waits (its driver's busy timeout is 5 s), and an
+attempt it cannot insert is never logged. The sweeper therefore plans without
+a lock, deletes by primary key in batches of at most 200 rows, and pauses
+between batches. The journal mode is left as Authelia set it.
+
+`secure_delete` is on, so the deleted rows and their index entries are
+overwritten with zeros in the database file. Two places it does not reach:
+the rollback journal holds the original pages while a transaction runs and is
+deleted at commit, so their bytes can stay in free blocks of the filesystem;
+and older copies Authelia's own writes left in free space inside pages stay
+until overwritten. Encrypt the host's disk; a `VACUUM` with the stack stopped
+rewrites the file without them.
+
+### Times and the schema guard
+
+Times are parsed, never compared as text: the driver stores Go times with a
+trimmed fraction and the container's offset, and `CURRENT_TIMESTAMP` columns
+hold another format. A stored time that does not parse stops its table alone
+(`retention.refused`, `time_format`).
+
+Before anything is planned, and again inside every transaction, the sweeper
+checks the schema version (`migrations`, verified: 24) and every table and
+column it uses. A newer Authelia stops the sweep (`retention.refused`,
+`schema`) until it has been checked; `auth_sweep.VERIFIED_AUTHELIA_IMAGE`
+must equal the image `docker/compose.yaml` pins, which a test checks
+([images.md](images.md)).
+
+### Operating it
+
+- `make retention-dry-run [DAYS=n]` shows, per table, what a period would
+  delete now (counts only, read-only, nothing recorded).
+- `make health` reports `auth-retention`: unhealthy when its loop stopped
+  reporting, a table is refused, or a table was not swept for three
+  intervals (also while the authentication log is held).
+- On a host that ran without it, the first sweep deletes the backlog older
+  than the period at once — exported attempts only.
+- `EDGE_AUTH_RETENTION_DAYS=off` keeps everything; it is meant for
+  development, logged as a warning and stated in `config.audit`.
+- When `auth-retention` cannot write its records it stops (exit 1) and the
+  container restarts; nothing is deleted without a record.
 
 ## Account changes (`admin`)
 
@@ -204,9 +314,11 @@ silent flip as `account.enable`.
 
 Every chain starts with a `lifecycle` / `start` event, ends with
 `lifecycle` / `shutdown` (a stop or restart of the container), and the
-long-running one beats every 60 s (`lifecycle` / `heartbeat`). After its
-start, the service writes `admin` / `config.audit` with its sources, poll
-interval and the row it resumes after.
+long-running ones beat every 60 s (`lifecycle` / `heartbeat`). After its
+start, `auth-audit` writes `admin` / `config.audit` with its sources, poll
+interval and the row it resumes after; `auth-retention` writes its own (see
+[Records](#records)). obs-plane's verifier binds edge-plane chains to the
+compose services `auth-audit` and `auth-retention`.
 
 ## Failure handling
 
@@ -235,6 +347,8 @@ names, attribute values or event content.
 | Variable | Default | What |
 |---|---|---|
 | `AUDIT_POLL_INTERVAL` | `5` | seconds between rounds (1–3600) |
+| `EDGE_AUTH_RETENTION_DAYS` | `30` | `auth-retention`: days after which Authelia's records are deleted (1–3650, or `off`) |
+| `EDGE_AUTH_RETENTION_INTERVAL_S` | `3600` | `auth-retention`: seconds between sweeps (60–86400) |
 
 Fixed in `docker/compose.yaml`: `AUDIT_OUTPUT=container` (every process in
 the container writes to its main stdout under one lock, so the lines of a
@@ -249,9 +363,14 @@ make health                     # includes "auth-audit: exporting the authentica
 make logs S=auth-audit          # the events (stdout) and operational messages (stderr)
 docker compose --env-file .env -f docker/compose.yaml logs --no-log-prefix auth-audit \
   | docker compose --env-file .env -f docker/compose.yaml exec -T auth-audit python /app/edge_audit.py verify
+make retention-dry-run          # what auth-retention would delete now
+docker compose --env-file .env -f docker/compose.yaml logs --no-log-prefix auth-retention \
+  | docker compose --env-file .env -f docker/compose.yaml exec -T auth-retention python /app/auth_retention.py verify
 ```
 
 `verify` checks the hash chains in the container's log, and `make smoke`
-runs it after asserting that the smoke login was exported. The tests
-(`python3 -m unittest discover -s audit/tests -t audit`) run the exporter
-against synthetic databases built with the pinned Authelia's schema.
+runs it after asserting that the smoke login was exported; it also checks
+that `auth-retention` accepts the live database (schema guard, dry run). The
+tests (`python3 -m unittest discover -s audit/tests -t audit`) run the
+exporter and the sweeper against synthetic databases built with the pinned
+Authelia's schema (`audit/tests/fixtures/authelia-schema.sql`).

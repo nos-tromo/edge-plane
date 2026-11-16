@@ -161,16 +161,16 @@ class AuthAttempt:
         )
 
 
-def iso_utc(value: str) -> str | None:
-    """Normalize a timestamp as Authelia's SQLite driver stores it.
+def db_time(value: str) -> datetime | None:
+    """Parse a timestamp as Authelia's SQLite driver stores it.
 
     Args:
         value: E.g. ``2026-01-31 12:00:00.123456789+00:00``. A value without
             an offset is taken as UTC (SQLite's ``CURRENT_TIMESTAMP``).
 
     Returns:
-        The time as ``2026-01-31T12:00:00.123Z`` (the events' own format), or
-        ``None`` when the value is not a timestamp.
+        The moment in UTC (to the microsecond), or ``None`` when the value is
+        not a timestamp.
     """
     match = _DB_TIME.fullmatch(value.strip())
     if match is None:
@@ -185,7 +185,24 @@ def iso_utc(value: str) -> str | None:
         moment = datetime.fromisoformat(f"{day}T{clock}.{micros}{zone}")
     except ValueError:
         return None
-    return moment.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return moment.astimezone(UTC)
+
+
+def iso_utc(value: str) -> str | None:
+    """Normalize a timestamp as Authelia's SQLite driver stores it.
+
+    Args:
+        value: E.g. ``2026-01-31 12:00:00.123456789+00:00``. A value without
+            an offset is taken as UTC (SQLite's ``CURRENT_TIMESTAMP``).
+
+    Returns:
+        The time as ``2026-01-31T12:00:00.123Z`` (the events' own format), or
+        ``None`` when the value is not a timestamp.
+    """
+    moment = db_time(value)
+    if moment is None:
+        return None
+    return moment.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def request_target(uri: str | None) -> tuple[str | None, int | None]:
@@ -882,7 +899,7 @@ def verify(lines: Iterable[str], out: TextIO) -> int:
     return 0 if report.events and report.ok else 1
 
 
-def _install_stop_handlers(stop: threading.Event) -> None:
+def install_stop_handlers(stop: threading.Event) -> None:
     """End ``serve`` cleanly on SIGTERM (``docker stop``) and SIGINT.
 
     As PID 1, the process would otherwise ignore SIGTERM.
@@ -923,7 +940,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "serve":
         stop = threading.Event()
-        _install_stop_handlers(stop)
+        install_stop_handlers(stop)
         return serve(os.environ, stop)
     if args.command == "check":
         return check(os.environ)

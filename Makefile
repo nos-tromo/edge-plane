@@ -1,8 +1,8 @@
 # edge-plane operator targets.
 #
 # Bespoke Makefile (data-plane/obs-plane pattern), NOT make/common.mk:
-# edge-plane pulls rather than builds (its one Python script, the auth-audit
-# exporter, runs as-is on a pulled python image) and adds
+# edge-plane pulls rather than builds (its Python scripts, the auth-audit
+# exporter and auth-retention, run as-is on a pulled python image) and adds
 # user/ca-export/smoke targets common.mk does not model. It adopts the
 # shared airgap bundle library (scripts/bundle-lib.sh, CI drift-checked)
 # via scripts/bundle_images.sh.
@@ -21,7 +21,7 @@ AUDIT_VOLUMES := edge-audit-state
 COMPOSE     := docker compose --env-file .env -f docker/compose.yaml
 COMPOSE_DEV := docker compose --env-file .env -f docker/compose.yaml -f docker/compose.override.yaml
 
-.PHONY: help network volumes pull bundle up up-dev stop down restart ps logs health nuke user secret totp ca-export smoke
+.PHONY: help network volumes pull bundle up up-dev stop down restart ps logs health nuke user secret totp ca-export smoke retention-dry-run
 
 help:
 	@echo "edge-plane — the federation's edge gateway (Caddy + Authelia)."
@@ -40,13 +40,14 @@ help:
 	@echo
 	@echo "Operations:"
 	@echo "  make ps         service status"
-	@echo "  make health     caddy + authelia readiness, auth-audit export"
+	@echo "  make health     caddy + authelia readiness, auth-audit export, auth-retention"
 	@echo "  make logs S=caddy   tail logs for one service"
 	@echo "  make user       hash a password for authelia/users.yml"
 	@echo "  make secret     generate a random secret for .env"
 	@echo "  make totp U=<user> [FORCE=1]  provision a user's TOTP second factor (prints the otpauth URI;"
 	@echo "                 needs the running stack, recorded in the audit trail)"
 	@echo "  make ca-export  write the internal CA root to edge-ca-root.crt"
+	@echo "  make retention-dry-run [DAYS=n]  what auth-retention would delete now (counts only)"
 	@echo "  make smoke      end-to-end auth/header checks (needs up-dev)"
 
 network:
@@ -101,6 +102,12 @@ health:
 	@$(COMPOSE) exec -T caddy wget -qO- http://127.0.0.1:2019/config/ >/dev/null && echo "caddy: ready"
 	@$(COMPOSE) exec -T caddy wget -qO- http://authelia:9091/auth/api/health >/dev/null && echo "authelia: ready"
 	@$(COMPOSE) exec -T auth-audit python /app/edge_audit.py health && echo "auth-audit: exporting the authentication log"
+	@$(COMPOSE) exec -T auth-retention python /app/auth_retention.py health && echo "auth-retention: deleting Authelia's records as configured"
+
+# Read-only preview of auth-retention (docs/audit.md#retention): counts per
+# table, never names or addresses. DAYS=n previews another period.
+retention-dry-run:
+	$(COMPOSE) exec -T auth-retention python /app/auth_retention.py dry-run $(if $(DAYS),--days $(DAYS),)
 
 logs:
 ifndef S

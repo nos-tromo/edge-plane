@@ -15,7 +15,9 @@
 #      cookie is rejected
 #   6. the logins above reach the audit trail: auth-audit exported them as
 #      auth events, and every chain in its log verifies. Needs the stack on
-#      this host (docker compose); EDGE_SMOKE_AUDIT=0 skips it
+#      this host (docker compose); EDGE_SMOKE_AUDIT=0 skips it and step 7
+#   7. auth-retention accepts the live database (schema guard, dry run) and
+#      its audit chain verifies
 set -euo pipefail
 
 # Caddy's site block is bound to EDGE_HOST, so a request to any other name
@@ -306,6 +308,18 @@ if [[ "${EDGE_SMOKE_AUDIT:-1}" != "0" ]]; then
   verdict=$("${COMPOSE[@]}" exec -T auth-audit python /app/edge_audit.py verify <<<"$audit_log") \
     || fail "auth-audit's audit chains do not verify: $verdict"
   echo "ok: logins exported as auth events; $verdict"
+
+  # 7. auth-retention: the live database, written by the pinned Authelia,
+  # passes its schema guard, every stored time parses (the dry run plans
+  # every table), and its own audit chain verifies.
+  "${COMPOSE[@]}" exec -T auth-retention python /app/auth_retention.py schema >/dev/null \
+    || fail "auth-retention does not accept the live database's schema"
+  "${COMPOSE[@]}" exec -T auth-retention python /app/auth_retention.py dry-run >/dev/null \
+    || fail "auth-retention cannot plan every table of the live database (dry run)"
+  retention_log=$("${COMPOSE[@]}" logs --no-log-prefix auth-retention 2>/dev/null || true)
+  retention_verdict=$("${COMPOSE[@]}" exec -T auth-retention python /app/auth_retention.py verify <<<"$retention_log") \
+    || fail "auth-retention's audit chains do not verify: $retention_verdict"
+  echo "ok: auth-retention accepts the live schema; $retention_verdict"
 fi
 
 echo "SMOKE PASS"
