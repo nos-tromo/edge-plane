@@ -66,7 +66,8 @@ was chosen over pushing token validation into three apps, is in
 
 Each app that consumes the identity headers gets its own secret, set in
 edge-plane's `.env` (`DOCINT_EDGE_SECRET`,
-`NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET`)
+`NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `GHOSTWRITER_EDGE_SECRET`,
+`OPEN_WEBUI_EDGE_SECRET`)
 and, with the same value under the same name, in that app's own `.env`.
 The gateway sends it as `X-Edge-Secret` on every request it proxies to
 the app (the `header_up` lines in `caddy/Caddyfile`). The app's frontend
@@ -78,6 +79,9 @@ passes request headers through to its backend, and the backend:
 - rejects a configured secret shorter than 32 characters at startup;
 - without a secret of its own, behaves as before and logs a startup
   warning that identity headers are trusted from any caller.
+
+Ghostwriter's backend works like the other apps: a set secret under 32
+characters stops startup, and an unset one is the dev fallback.
 
 Per-app values mean a compromised app cannot impersonate users towards
 another app.

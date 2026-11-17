@@ -26,14 +26,16 @@ Sie sich beim Support.
 | docint | Fragen an Ihre Dokumente stellen, Berichte erstellen |
 | Nextext | Audio und Video mitschreiben und übersetzen |
 | translator | Text übersetzen |
-| Open WebUI | allgemeiner Chat-Assistent; öffnet sich unter einer eigenen Adresse (Port 8443) |
+| Ghostwriter | im Chat Fragen stellen, Dateien anhängen, rechnen lassen und Tabellen oder Dokumente erstellen |
+| Open WebUI | allgemeiner Chat-Assistent; veraltet, wird abgeschaltet; Nachfolger: Ghostwriter; öffnet sich unter einer eigenen Adresse (Port 8443) |
 | Grafana | Monitoring, nur für die Administration |
 
 Der Punkt neben dem Namen einer Anwendung zeigt ihren Zustand: grün heißt
 erreichbar, rot gestört, grau unbekannt oder kein Zugriff.
 
 In docint, Nextext und translator geben Sie oben in der Zweckleiste den Zweck
-Ihrer Arbeit an, z. B. ein Aktenzeichen.
+Ihrer Arbeit an, z. B. ein Aktenzeichen. In Ghostwriter ist die Angabe des
+Zwecks freiwillig, es sei denn, die Administration schreibt sie vor.
 
 ## Passwort ändern
 

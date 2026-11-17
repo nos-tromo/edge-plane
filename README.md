@@ -29,8 +29,8 @@ never reachable from `edge-net`.
 
 All application traffic flows through each app's own frontend nginx,
 reached by alias on `edge-net` (`docint-frontend`,
-`nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
-`grafana-audit`).
+`nextext-frontend`, `translator-frontend`, `ghostwriter-frontend`,
+`open-webui`, `grafana`, `grafana-audit`).
 `edge-net` is the federation's third external network seam, alongside
 `inference-net` and `data-net`; `make network` creates it.
 
@@ -45,6 +45,7 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/docint/*` | `docint-frontend:8080` | forward_auth | SPA serves from the sub-path |
 | `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
 | `/translator/*` | `translator-frontend:8080` | forward_auth | stateless; `X-Auth-User` is used for display only |
+| `/ghostwriter/*` | `ghostwriter-frontend:8080` | forward_auth | SPA serves from the sub-path; answers stream as SSE |
 | `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/audit/*` | `grafana-audit:3000` | forward_auth | obs-plane's audit-trail viewer; **`audit` group only** (not `admins`) — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |

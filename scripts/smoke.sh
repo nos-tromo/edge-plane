@@ -11,6 +11,9 @@
 #      generated X-Request-ID, never the client-forged ones
 #   4c. /grafana and /audit refuse a user outside their group, in any
 #      letter case
+#   4d. /ghostwriter (bare prefix, /ghostwriter/, any letter case) is routed
+#      behind forward_auth: 302 -> /auth without a session; with one, 502 or
+#      200 and never the portal's app grid
 #   5. logout destroys the session server-side - replaying the pre-logout
 #      cookie is rejected
 #   6. the logins above reach the audit trail: auth-audit exported them as
@@ -209,6 +212,25 @@ for gated in /grafana/ /Grafana/ /audit/ /AUDIT/x; do
   [[ "$gate_code" == "403" ]] || fail "expected 403 for a non-member at $gated, got: $gate_code"
 done
 echo "ok: /grafana and /audit refuse non-members in any letter case"
+
+# Ghostwriter sits behind forward_auth like the other apps, bare prefix and
+# any letter case included. Dev runs no Ghostwriter, so with the session the
+# gateway answers 502 (nothing upstream) or 200 (a Ghostwriter on edge-net).
+# A request that missed the route would fall into the portal's catch-all and
+# return its app grid.
+for gw in /ghostwriter /ghostwriter/ /Ghostwriter/x; do
+  gw_unauth=$(run_curl "unauthenticated $gw request" -o /dev/null -w '%{http_code} %{redirect_url}' \
+    -H 'Accept: text/html' "$BASE$gw")
+  [[ "$gw_unauth" == 302\ *"/auth"* ]] \
+    || fail "expected 302 -> /auth for unauthenticated $gw, got: $gw_unauth"
+  gw_out=$(run_curl "authenticated $gw request" -b "$JAR" -w $'\n%{http_code}' "$BASE$gw")
+  gw_code=${gw_out##*$'\n'}
+  [[ "$gw_code" == "502" || "$gw_code" == "200" ]] \
+    || fail "expected 502 or 200 for $gw with a session, got: $gw_code"
+  grep -q 'id="app-grid"' <<<"$gw_out" \
+    && fail "$gw fell into the portal's catch-all (app grid in the body)"
+done
+echo "ok: /ghostwriter routed behind forward_auth (bare prefix, any letter case)"
 
 # Code-viewer page: auth-gated, and no path under it serves the raw
 # notification file (the rewrite pins everything to the template page).

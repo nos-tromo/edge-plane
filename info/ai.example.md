@@ -24,7 +24,8 @@ Einige Anwendungen in diesem Portal arbeiten mit Künstlicher Intelligenz
 | docint | beantwortet Fragen zu Ihren Dokumenten, fasst zusammen und erstellt Berichte; nennt dazu die Fundstellen |
 | Nextext | schreibt Audio und Video mit, unterscheidet Sprecher, erkennt Namen, übersetzt und fasst zusammen |
 | translator | übersetzt Text |
-| Open WebUI | allgemeiner Chat-Assistent |
+| Ghostwriter | beantwortet Fragen im Chat, liest angehängte Dateien, rechnet mit Python und erstellt Tabellen und Dokumente |
+| Open WebUI | allgemeiner Chat-Assistent; veraltet, wird abgeschaltet; Nachfolger: Ghostwriter |
 
 ## Was Sie wissen sollten
 

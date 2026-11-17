@@ -135,6 +135,17 @@ https://{$EDGE_HOST}:443 {
 			header_up X-Request-ID {http.request.uuid}
 		}
 	}
+	# SSE answers and silent tool turns: no flush_interval (Caddy flushes an
+	# event stream at once) and no stream_timeout (it caps streaming requests
+	# such as WebSockets); the backend's wall time bounds a turn.
+	@ghostwriter path /ghostwriter /ghostwriter/*
+	handle @ghostwriter {
+		import authed
+		reverse_proxy ghostwriter-frontend:8080 {
+			header_up X-Edge-Secret "{$GHOSTWRITER_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
+	}
 	# Open WebUI has no sub-path support (its SvelteKit frontend bakes
 	# root-absolute asset paths, e.g. /_app/..., at image build time —
 	# there is no runtime base-path env to rewrite them). It gets a
