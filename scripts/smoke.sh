@@ -11,6 +11,9 @@
 #      generated X-Request-ID, never the client-forged ones
 #   4c. /grafana and /audit refuse a user outside their group, in any
 #      letter case
+#   4d. /ghostwriter (bare prefix, /ghostwriter/, any letter case) is routed
+#      behind forward_auth: 302 -> /auth without a session; with one, 502 or
+#      200 and never the portal's app grid
 #   5. logout destroys the session server-side - replaying the pre-logout
 #      cookie is rejected
 #   6. the logins above reach the audit trail: auth-audit exported them as

@@ -66,13 +66,11 @@ Was Sie in den Anwendungen selbst verarbeiten:
   Herunterladen und werden nicht gespeichert.
 - **translator:** speichert keine Texte.
 - **Ghostwriter:** Chats werden 90 Tage nach ihrem Beginn gelöscht
-  (`GHOSTWRITER_CHAT_RETENTION_DAYS`, prüfen). Angehängte Dateien und
-  Ergebnisse werden mit dem Chat gelöscht, spätestens nach 7 Tagen
-  (`WORKBENCH_RETENTION_DAYS`, prüfen). Ergebnisse der Werkzeuge (Code,
-  Ausgabe, Tabellenvorschauen) werden mit den Dateien gelöscht. Das
-  Nachdenken des Modells, das sich in der Eingabezeile zuschalten lässt,
-  wird weder angezeigt noch gespeichert. Protokolliert werden Konto,
-  Aktion und Verweise, keine Nachrichteninhalte.
+  (`GHOSTWRITER_CHAT_RETENTION_DAYS`, prüfen), angehängte Dateien und
+  Ergebnisse mit dem Chat, spätestens nach 7 Tagen (`WORKBENCH_RETENTION_DAYS`,
+  prüfen); dazu zählen Code, Ausgaben und Tabellenvorschauen der Werkzeuge.
+  Protokolliert werden Konto, Aktion und Verweise, keine Nachrichteninhalte;
+  das Nachdenken des Modells wird weder angezeigt noch gespeichert.
 - **Open WebUI:** Chats werden 365 Tage nach ihrem Beginn gelöscht
   (`OPEN_WEBUI_CHAT_RETENTION_DAYS`, prüfen). Protokolliert werden Konto,
   Aufruf, Netzwerkadresse und Modell, keine Nachrichteninhalte.

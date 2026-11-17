@@ -175,8 +175,8 @@ These were all hit in anger; don't "simplify" them away:
   destination instead.
 - The `/ghostwriter` block has no `flush_interval` and no `stream_timeout`,
   on purpose: its answers are server-sent events, which Caddy flushes at
-  once, and `stream_timeout` caps upgraded connections such as WebSockets,
-  not an SSE response. Adding either would cut or buffer a long tool turn.
+  once, and `stream_timeout` caps streaming requests such as WebSockets.
+  Adding either risks buffering or cutting a long, silent tool turn.
 - `:8443` caps streams at `stream_timeout 30m`: `forward_auth` gates only
   the WebSocket upgrade, so an open socket would otherwise outlive the
   Authelia session.

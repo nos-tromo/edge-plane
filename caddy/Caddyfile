@@ -135,12 +135,9 @@ https://{$EDGE_HOST}:443 {
 			header_up X-Request-ID {http.request.uuid}
 		}
 	}
-	# Ghostwriter answers as server-sent events and a tool turn can be silent
-	# for minutes. Caddy flushes a text/event-stream response at once and sets
-	# no read timeout, so this block deliberately has no flush_interval and no
-	# stream_timeout (the latter caps upgraded connections such as the :8443
-	# site's WebSockets, which an SSE response is not): the turn is bounded by
-	# the backend's own wall time.
+	# SSE answers and silent tool turns: no flush_interval (Caddy flushes an
+	# event stream at once) and no stream_timeout (it caps streaming requests
+	# such as WebSockets); the backend's wall time bounds a turn.
 	@ghostwriter path /ghostwriter /ghostwriter/*
 	handle @ghostwriter {
 		import authed

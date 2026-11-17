@@ -61,16 +61,17 @@ proxies = {}
 def walk(node):
     if isinstance(node, dict):
         if node.get("handler") == "reverse_proxy":
-            sent = {
-                name.lower(): values
-                for name, values in node.get("headers", {})
-                .get("request", {})
-                .get("set", {})
-                .items()
-            }
+            ops = node.get("headers", {}).get("request", {})
+            sent = {name.lower(): values for name, values in ops.get("set", {}).items()}
+            # An add, delete or replace of the header changes what the set
+            # line sends (a delete leaves none at all), so any of them fails.
+            changed = any(
+                name.lower() == "x-edge-secret"
+                for name in [*ops.get("add", {}), *ops.get("delete", []), *ops.get("replace", {})]
+            )
             for upstream in node.get("upstreams", []):
                 proxies.setdefault(upstream.get("dial"), []).append(
-                    sent.get("x-edge-secret")
+                    (sent.get("x-edge-secret"), changed)
                 )
         for value in node.values():
             walk(value)
@@ -83,8 +84,11 @@ walk(config.get("apps", {}))
 
 failed = False
 for upstream, probe in expected.items():
-    for sent in proxies.get(upstream) or [None]:
-        if not sent:
+    for sent, changed in proxies.get(upstream) or [(None, False)]:
+        if changed:
+            print(f"FAIL: {upstream} adds, deletes or replaces X-Edge-Secret", file=sys.stderr)
+            failed = True
+        elif not sent:
             print(f"FAIL: {upstream} carries no secret", file=sys.stderr)
             failed = True
         elif sent != [probe]:
