@@ -84,6 +84,7 @@ docker compose --env-file .env -f docker/compose.yaml config --quiet            
 docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
   -v "$PWD/caddy/conf.d:/etc/caddy/conf.d:ro" <pinned caddy image> \
   caddy validate --config /etc/caddy/Caddyfile                                  # Caddyfile validation
+./scripts/check-edge-secrets.sh                                                 # every upstream sends its own X-Edge-Secret
 ./scripts/check-tokens-vendor.sh                                                # landing/tokens.css vendoring header
 ./scripts/check-no-literal-dimensions.sh                                        # portal font-size/border-radius must be tokens
 python3 -m unittest discover -s audit/tests -t audit                            # auth-audit + auth-retention (also run in the pinned python image)
@@ -172,6 +173,10 @@ These were all hit in anger; don't "simplify" them away:
 - The `/webui` block cannot carry `forward_auth` (Caddy orders `redir`
   first, so it would never run) — auth is enforced at the `:8443`
   destination instead.
+- The `/ghostwriter` block has no `flush_interval` and no `stream_timeout`,
+  on purpose: its answers are server-sent events, which Caddy flushes at
+  once, and `stream_timeout` caps upgraded connections such as WebSockets,
+  not an SSE response. Adding either would cut or buffer a long tool turn.
 - `:8443` caps streams at `stream_timeout 30m`: `forward_auth` gates only
   the WebSocket upgrade, so an open socket would otherwise outlive the
   Authelia session.
@@ -188,8 +193,8 @@ These were all hit in anger; don't "simplify" them away:
   lives — never `inference-net`/`data-net`. Authelia is on the internal
   network only, reachable solely via Caddy. Upstreams are reached by
   `edge-net` alias (`docint-frontend`,
-  `nextext-frontend`, `translator-frontend`, `open-webui`, `grafana`,
-  `grafana-audit`);
+  `nextext-frontend`, `translator-frontend`, `ghostwriter-frontend`,
+  `open-webui`, `grafana`, `grafana-audit`);
   this repo does not own those services. Do not route Qdrant/
   `vllm-router` — that is the seam violation the network design prevents.
 - Three external volumes: `edge-state` (Authelia's encrypted SQLite —

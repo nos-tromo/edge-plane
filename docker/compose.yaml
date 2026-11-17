@@ -27,8 +27,8 @@ name: edge-plane
 # cannot resolve them. Exempt every alias this gateway proxies to (plus
 # whoami, the dev-only echo upstream).
 x-no-proxy-env: &no-proxy-env
-  NO_PROXY: "authelia,docint-frontend,nextext-frontend,translator-frontend,open-webui,grafana,grafana-audit,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
-  no_proxy: "authelia,docint-frontend,nextext-frontend,translator-frontend,open-webui,grafana,grafana-audit,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
+  NO_PROXY: "authelia,docint-frontend,nextext-frontend,translator-frontend,ghostwriter-frontend,open-webui,grafana,grafana-audit,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
+  no_proxy: "authelia,docint-frontend,nextext-frontend,translator-frontend,ghostwriter-frontend,open-webui,grafana,grafana-audit,whoami,localhost,127.0.0.1,172.16.0.0/12,10.0.0.0/8${EXTRA_NO_PROXY:-}"
 
 x-logging: &default-logging
   driver: "local"
@@ -95,6 +95,7 @@ services:
       DOCINT_EDGE_SECRET: ${DOCINT_EDGE_SECRET:-}
       NEXTEXT_EDGE_SECRET: ${NEXTEXT_EDGE_SECRET:-}
       TRANSLATOR_EDGE_SECRET: ${TRANSLATOR_EDGE_SECRET:-}
+      GHOSTWRITER_EDGE_SECRET: ${GHOSTWRITER_EDGE_SECRET:-}
       OPEN_WEBUI_EDGE_SECRET: ${OPEN_WEBUI_EDGE_SECRET:-}
       GRAFANA_EDGE_SECRET: ${GRAFANA_EDGE_SECRET:-}
       AUDIT_EDGE_SECRET: ${AUDIT_EDGE_SECRET:?AUDIT_EDGE_SECRET must be set in .env (openssl rand -hex 32; same value as obs-plane)}

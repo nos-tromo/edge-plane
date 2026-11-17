@@ -135,6 +135,20 @@ https://{$EDGE_HOST}:443 {
 			header_up X-Request-ID {http.request.uuid}
 		}
 	}
+	# Ghostwriter answers as server-sent events and a tool turn can be silent
+	# for minutes. Caddy flushes a text/event-stream response at once and sets
+	# no read timeout, so this block deliberately has no flush_interval and no
+	# stream_timeout (the latter caps upgraded connections such as the :8443
+	# site's WebSockets, which an SSE response is not): the turn is bounded by
+	# the backend's own wall time.
+	@ghostwriter path /ghostwriter /ghostwriter/*
+	handle @ghostwriter {
+		import authed
+		reverse_proxy ghostwriter-frontend:8080 {
+			header_up X-Edge-Secret "{$GHOSTWRITER_EDGE_SECRET}"
+			header_up X-Request-ID {http.request.uuid}
+		}
+	}
 	# Open WebUI has no sub-path support (its SvelteKit frontend bakes
 	# root-absolute asset paths, e.g. /_app/..., at image build time —
 	# there is no runtime base-path env to rewrite them). It gets a
