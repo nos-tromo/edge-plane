@@ -21,7 +21,6 @@ UPSTREAMS=(
   "nextext-frontend:8080 NEXTEXT"
   "translator-frontend:8080 TRANSLATOR"
   "ghostwriter-frontend:8080 GHOSTWRITER"
-  "open-webui:8080 OPEN_WEBUI"
   "grafana:3000 GRAFANA"
   "grafana-audit:3000 AUDIT"
 )

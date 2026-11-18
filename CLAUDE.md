@@ -19,13 +19,12 @@ For any non-trivial change (>1 file or any root-cause fix), present a plan and w
 
 The federation's edge gateway — pure infra, no application source. Three
 pulled, digest-pinned images: **Caddy** (TLS on `:443` + `:80` redirect,
-path routing, `forward_auth`, identity-header injection; dedicated
-`:8443` site for Open WebUI), **Authelia** (file-backed users, SQLite
-state, filesystem notifier — airgap-clean, no SMTP/egress), and
-**python** for `auth-audit` and `auth-retention`, which run stdlib scripts
-mounted from `audit/` (login attempts and account changes as audit events;
-deleting Authelia's login records after a period). Caddy's are
-the only published host ports in the whole production federation.
+path routing, `forward_auth`, identity-header injection), **Authelia**
+(file-backed users, SQLite state, filesystem notifier — airgap-clean, no
+SMTP/egress), and **python** for `auth-audit` and `auth-retention`, which
+run stdlib scripts mounted from `audit/` (login attempts and account changes
+as audit events; deleting Authelia's login records after a period). Caddy's
+are the only published host ports in the whole production federation.
 
 `README.md` is the entry point — what the gateway is, the routing table,
 and a quickstart. The operator runbooks live in `docs/`, indexed by
@@ -37,9 +36,7 @@ admins-group `/grafana` gate), `docs/audit.md` (the audit events
 `auth-audit` writes), `docs/portal-tokens.md` (the vendored
 design tokens and their CI checks). Architecture decisions:
 `docs/decisions/`. Design rationale:
-`docs/2026-07-23-edge-plane-design.md` (note: its Open WebUI sub-path
-assumption did not hold — see
-`docs/decisions/0002-open-webui-dedicated-port.md`). Pinned image
+`docs/2026-07-23-edge-plane-design.md`. Pinned image
 references: `docs/images.md` — the source of truth CI and compose must
 match.
 
@@ -52,7 +49,7 @@ Makefile (data-plane/obs-plane pattern), not `common.mk`; no `make verify`,
 no `bundle-dev`.
 
 ```bash
-make up             # production shape (:443/:80/:8443 only); requires .env + authelia/users.yml
+make up             # production shape (:443/:80 only); requires .env + authelia/users.yml
 make up-dev         # + whoami header-echo upstream and its /whoami route
 make smoke          # end-to-end auth/header contract test — needs a running `make up-dev`
 make health         # caddy + authelia readiness, auth-audit export, auth-retention
@@ -148,7 +145,7 @@ query string, no headers; `user` from `X-Auth-User`, request id as
 `uuid`). See `docs/identity-contract.md`.
 
 `Authorization` passes through untouched — it is not part of the contract
-(upstreams like Open WebUI use it internally). Downstream apps (docint,
+(upstreams use it internally). Downstream apps (docint,
 Nextext) consume `X-Auth-User` fail-closed; the whole model is
 sound only because production publishes no other host ports, the gateway
 strips before injecting, and each app checks its edge secret — the first
@@ -170,21 +167,14 @@ These were all hit in anger; don't "simplify" them away:
 - Bare `/auth` must be matched: Authelia's login redirects target the
   slash-less portal URL, which must not fall into the authenticated
   catch-all (redirect loop → 404 after login).
-- The `/webui` block cannot carry `forward_auth` (Caddy orders `redir`
-  first, so it would never run) — auth is enforced at the `:8443`
-  destination instead.
 - The `/ghostwriter` block has no `flush_interval` and no `stream_timeout`,
   on purpose: its answers are server-sent events, which Caddy flushes at
   once, and `stream_timeout` caps streaming requests such as WebSockets.
   Adding either risks buffering or cutting a long, silent tool turn.
-- `:8443` caps streams at `stream_timeout 30m`: `forward_auth` gates only
-  the WebSocket upgrade, so an open socket would otherwise outlive the
-  Authelia session.
 - `default_sni {$EDGE_HOST}` is required because RFC 6066 forbids SNI for
   literal IPs — without it every handshake to an IP `EDGE_HOST` fails.
 - App route prefixes are NOT stripped — each SPA serves under its
-  sub-path; Open WebUI can't (root-absolute baked asset paths), hence the
-  dedicated `:8443` site.
+  sub-path.
 
 ### Other structural facts
 
@@ -194,7 +184,7 @@ These were all hit in anger; don't "simplify" them away:
   network only, reachable solely via Caddy. Upstreams are reached by
   `edge-net` alias (`docint-frontend`,
   `nextext-frontend`, `translator-frontend`, `ghostwriter-frontend`,
-  `open-webui`, `grafana`, `grafana-audit`);
+  `grafana`, `grafana-audit`);
   this repo does not own those services. Do not route Qdrant/
   `vllm-router` — that is the seam violation the network design prevents.
 - Three external volumes: `edge-state` (Authelia's encrypted SQLite —

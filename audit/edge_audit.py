@@ -209,8 +209,8 @@ def request_target(uri: str | None) -> tuple[str | None, int | None]:
     """Reduce the URL a login was for to its path and explicit port.
 
     The query string and fragment can carry search terms and other personal
-    data, so they are dropped, as the gateway's access log drops them. The
-    port tells the dedicated Open WebUI site (``:8443``) apart from the main one.
+    data, so they are dropped, as the gateway's access log drops them. An
+    explicit port is kept.
 
     Args:
         uri: The stored ``request_uri``, or ``None``.

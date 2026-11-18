@@ -15,7 +15,7 @@ Four services:
 
 | Service | Role | Network membership |
 |---|---|---|
-| `caddy` | TLS termination (`:443` + the `:8443` Open WebUI site, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` **and** the project-internal `default` network |
+| `caddy` | TLS termination (`:443`, `:80` redirect), path routing, `forward_auth`, `X-Auth-User` injection | `edge-net` **and** the project-internal `default` network |
 | `authelia` | Identity provider: file-backed users, SQLite state (sessions/TOTP/preferences), filesystem notifier | project-internal (default) network only, reached by Caddy via `forward_auth` |
 | `auth-audit` | Audit events: every login attempt from Authelia's authentication log, every account change (`make totp`, `authelia/users.yml`) — see [docs/audit.md](docs/audit.md) | none — it reads Authelia's files read-only and writes its log |
 | `auth-retention` | Deletes Authelia's login records (authentication log once exported, one-time codes, identity verifications, TOTP history, ended bans) after `EDGE_AUTH_RETENTION_DAYS` (30), each batch an audit `delete` event — see [docs/audit.md](docs/audit.md#retention) | none — the only writer to Authelia's database besides Authelia |
@@ -30,15 +30,15 @@ never reachable from `edge-net`.
 All application traffic flows through each app's own frontend nginx,
 reached by alias on `edge-net` (`docint-frontend`,
 `nextext-frontend`, `translator-frontend`, `ghostwriter-frontend`,
-`open-webui`, `grafana`, `grafana-audit`).
+`grafana`, `grafana-audit`).
 `edge-net` is the federation's third external network seam, alongside
 `inference-net` and `data-net`; `make network` creates it.
 
 ## Routing
 
-Every path below is on the main `https://<EDGE_HOST>:443` site, except the
+Every path below is on the `https://<EDGE_HOST>:443` site, except the
 dev-only `/whoami/*` row. `http://<EDGE_HOST>:80` serves nothing but a 301
-to it, and Open WebUI has its own `:8443` site (after the table).
+to it.
 
 | Path | Upstream (`edge-net` alias) | Auth | Notes |
 |---|---|---|---|
@@ -46,7 +46,6 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/nextext/*` | `nextext-frontend:8080` | forward_auth | same |
 | `/translator/*` | `translator-frontend:8080` | forward_auth | stateless; `X-Auth-User` is used for display only |
 | `/ghostwriter/*` | `ghostwriter-frontend:8080` | forward_auth | SPA serves from the sub-path; answers stream as SSE |
-| `/webui/*` | — | none *here* | redirects to the dedicated `:8443` site, which gates every request itself. Caddy orders `redir` before `forward_auth`, so a check in this block could never run |
 | `/grafana/*` | `grafana:3000` | forward_auth | `serve_from_sub_path` + `auth.proxy`; **admins group only** — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/audit/*` | `grafana-audit:3000` | forward_auth | obs-plane's audit-trail viewer; **`audit` group only** (not `admins`) — see [docs/identity-contract.md](docs/identity-contract.md#access-control-the-admins-group-grafana-gate) |
 | `/auth/*` | `authelia:9091` | — | Authelia's own login portal + API (sub-path mode) |
@@ -55,16 +54,6 @@ to it, and Open WebUI has its own `:8443` site (after the table).
 | `/auth-code` | — (static, `authcode/`) | forward_auth | one-time verification code viewer for password self-service; gated to the account whose `X-Auth-Email` matches |
 | `/whoami/*` | `whoami:80` | forward_auth | **dev only** — header-echo upstream, added by `docker/compose.override.yaml` and routed via `caddy/conf.d.dev/dev.caddy`; absent in production |
 | everything else | static landing page (`landing/`) | forward_auth | portal with service tiles, status indicators, an optional Markdown announcement section ([docs/configuration.md](docs/configuration.md#portal-announcement)), a footer linking the information pages, and inline password-change form; light/dark via the shared `infra-ui-theme` tri-state toggle (OS-preference default) |
-
-Open WebUI is the one exception to the path model: it is served from its own
-site at `https://<EDGE_HOST>:8443/`, published alongside `:443`/`:80` as the
-only other host-port exception, because its image bakes root-absolute asset
-paths and cannot serve from a sub-path — see
-[docs/decisions/0002-open-webui-dedicated-port.md](docs/decisions/0002-open-webui-dedicated-port.md).
-That site runs the same `strip_identity` + `forward_auth` chain as every
-`:443` route, so the identity contract is unchanged; it additionally caps
-long-lived streams at `stream_timeout 30m`, because `forward_auth` gates
-only the WebSocket upgrade.
 
 Full design rationale, including the risk analysis for SPA sub-path serving
 and the Grafana access-model change from obs-plane's tunnel-only v1
@@ -107,7 +96,7 @@ secret. Full contract, plus the admins-group `/grafana` gate:
 
 Both services run with `no-new-privileges` and `cap_drop: ALL` (the
 `x-hardened` compose anchor). Neither ends up with an empty capability
-set, though: Caddy re-adds `NET_BIND_SERVICE` for its `:443`/`:80`/`:8443`
+set, though: Caddy re-adds `NET_BIND_SERVICE` for its `:443`/`:80`
 binds, and Authelia re-adds `CHOWN`/`SETUID`/`SETGID`, which its
 entrypoint needs to chown its config and drop to the image's internal
 user. Caddy additionally runs on a read-only root filesystem (`/tmp` and
@@ -133,7 +122,7 @@ cp .env.example .env
 $EDITOR .env                              # set EDGE_HOST; generate real secrets with `openssl rand -hex 32`
 cp authelia/users.template.yml authelia/users.yml
 make user                                 # hash a real password, paste the result into users.yml
-make up                                   # production shape — :443, :8443 (+:80 redirect) only
+make up                                   # production shape — :443 (+:80 redirect) only
 make totp U=<username>                    # provision each user's TOTP second factor (login needs it)
 ```
 

@@ -293,15 +293,15 @@ class MappingTest(Workspace):
             self.assertNotIn(key, criteria)
         self.assert_chains_intact()
 
-    def test_dedicated_site_keeps_its_port(self) -> None:
-        """The :8443 Open WebUI site is told apart from the main site."""
+    def test_an_explicit_port_is_kept(self) -> None:
+        """An explicit port in the login's URL is recorded."""
         make_database(self.database)
-        add_attempt(self.database, request_uri="https://edge.example:8443/")
+        add_attempt(self.database, request_uri="https://edge.example:9443/")
         emitter, stream = self.emitter()
         self.exporter(emitter).poll()
         (event,) = auth_events(lines(stream))
         self.assertEqual(event["criteria"]["request_path"], "/")
-        self.assertEqual(event["criteria"]["request_port"], 8443)
+        self.assertEqual(event["criteria"]["request_port"], 9443)
         self.assert_chains_intact()
 
     def test_from_row_tolerates_nulls(self) -> None:
@@ -339,7 +339,7 @@ class HelperTest(unittest.TestCase):
             "": (None, None),
             "https://edge.example/docint/collections/x?filter=Bob+Example": ("/docint/collections/x", None),
             "https://edge.example": ("/", None),
-            "https://edge.example:8443/c/1": ("/c/1", 8443),
+            "https://edge.example:9443/c/1": ("/c/1", 9443),
             "/nextext/jobs?id=1": ("/nextext/jobs", None),
             "https://[::1": (None, None),
             "https://edge.example:99999/x": ("/x", None),

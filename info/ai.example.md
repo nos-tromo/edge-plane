@@ -25,7 +25,6 @@ Einige Anwendungen in diesem Portal arbeiten mit Künstlicher Intelligenz
 | Nextext | schreibt Audio und Video mit, unterscheidet Sprecher, erkennt Namen, übersetzt und fasst zusammen |
 | translator | übersetzt Text |
 | Ghostwriter | beantwortet Fragen im Chat, liest angehängte Dateien, rechnet mit Python und erstellt Tabellen und Dokumente |
-| Open WebUI | allgemeiner Chat-Assistent; veraltet, wird abgeschaltet; Nachfolger: Ghostwriter |
 
 ## Was Sie wissen sollten
 
