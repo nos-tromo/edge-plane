@@ -1,6 +1,6 @@
 # 0002 — Open WebUI on a dedicated port, not a sub-path
 
-Status: accepted (2026-07-24)
+Status: Superseded (2026-11-17) by deploy ADR 0008
 Date: 2026-07-24 (decision); recorded 2026-08-22, moved out of `README.md`
 
 ## Context

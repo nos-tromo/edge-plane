@@ -146,18 +146,6 @@ https://{$EDGE_HOST}:443 {
 			header_up X-Request-ID {http.request.uuid}
 		}
 	}
-	# Open WebUI has no sub-path support (its SvelteKit frontend bakes
-	# root-absolute asset paths, e.g. /_app/..., at image build time —
-	# there is no runtime base-path env to rewrite them). It gets a
-	# dedicated port (see the :8443 site block below) instead of living
-	# under this path; redirect anyone who types /webui there.
-	@webui path /webui /webui/*
-	handle @webui {
-		# No forward_auth here — Caddy orders redir before forward_auth,
-		# so a check in this block can never run. Auth is enforced at the
-		# destination: the :8443 site gates every request.
-		redir https://{$EDGE_HOST}:8443
-	}
 	# obs-plane's two Grafanas share edge-net with every app frontend, so a
 	# guard in front of each checks its own edge secret like the apps do.
 	@grafana path /grafana /grafana/*
@@ -230,30 +218,5 @@ https://{$EDGE_HOST}:443 {
 			root /srv/portal
 		}
 		file_server
-	}
-}
-
-# Open WebUI has no sub-path support (root-absolute assets); it gets a
-# dedicated port instead of a /webui path, same auth + headers.
-https://{$EDGE_HOST}:8443 {
-	tls {$EDGE_TLS:internal}
-	import strip_identity
-	import access_log
-
-	# The proxy must live inside a handle block: at site level Caddy
-	# orders forward_auth BEFORE request_header, so strip_identity would
-	# delete the X-Auth-* headers copy_headers just injected. handle
-	# sorts after request_header, restoring strip -> auth -> inject.
-	handle {
-		import authed
-		reverse_proxy open-webui:8080 {
-			header_up X-Edge-Secret "{$OPEN_WEBUI_EDGE_SECRET}"
-			header_up X-Request-ID {http.request.uuid}
-			# Cap long-lived streams (socket.io): forward_auth only
-			# gates the HTTP upgrade, so an open WebSocket would
-			# otherwise outlive the Authelia session indefinitely.
-			# Re-upgrades pass back through forward_auth.
-			stream_timeout 30m
-		}
 	}
 }

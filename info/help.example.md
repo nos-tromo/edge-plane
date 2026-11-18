@@ -27,7 +27,6 @@ Sie sich beim Support.
 | Nextext | Audio und Video mitschreiben und übersetzen |
 | translator | Text übersetzen |
 | Ghostwriter | im Chat Fragen stellen, Dateien anhängen, rechnen lassen und Tabellen oder Dokumente erstellen |
-| Open WebUI | allgemeiner Chat-Assistent; veraltet, wird abgeschaltet; Nachfolger: Ghostwriter; öffnet sich unter einer eigenen Adresse (Port 8443) |
 | Grafana | Monitoring, nur für die Administration |
 
 Der Punkt neben dem Namen einer Anwendung zeigt ihren Zustand: grün heißt

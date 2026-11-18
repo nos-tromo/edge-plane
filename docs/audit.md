@@ -77,7 +77,7 @@ per row, in row order.
   | `auth_type` | the factor, as Authelia names it |
   | `banned` | whether the attempt hit a ban |
   | `client_ip` | the client address the gateway forwarded |
-  | `request_path`, `request_port` | the URL the login was for, as the login page reported it: the path only (the query string and fragment are dropped — they can carry search terms), and the port when it is explicit (`8443` is the Open WebUI site) |
+  | `request_path`, `request_port` | the URL the login was for, as the login page reported it: the path only (the query string and fragment are dropped — they can carry search terms), and the port when it is explicit |
   | `request_method` | that request's method |
   | `unknown_account` | `true` when no account matched |
 

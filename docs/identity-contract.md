@@ -24,8 +24,7 @@ issuer. Nothing issued it in production before edge-plane. The flow:
 3. Caddy copies `Remote-User` into **`X-Auth-User`** on the proxied
    request — the `authed` snippet's `copy_headers`. The gateway also
    forwards `X-Auth-Email` (from Authelia's `Remote-Email`) for
-   upstreams keyed on email, e.g. Open WebUI's
-   `WEBUI_AUTH_TRUSTED_EMAIL_HEADER=X-Auth-Email`.
+   upstreams keyed on email.
 
    The gateway likewise forwards **`X-Auth-Groups`** (from Authelia's
    `Remote-Groups`, comma-separated) so upstreams can make group-based
@@ -57,8 +56,7 @@ with forged headers. The edge secret closes that gap.
 **`Authorization` pass-through rule**: the gateway owns `X-Auth-User` /
 `Remote-*` and strips them from clients, but passes `Authorization`
 through untouched. It is not part of the identity contract — upstreams
-use it internally (Open WebUI issues its own JWTs after the
-trusted-header handshake). Full rationale, including why trusted-header
+use it internally. Full rationale, including why trusted-header
 was chosen over pushing token validation into three apps, is in
 [2026-07-23-edge-plane-design.md](2026-07-23-edge-plane-design.md).
 
@@ -66,8 +64,7 @@ was chosen over pushing token validation into three apps, is in
 
 Each app that consumes the identity headers gets its own secret, set in
 edge-plane's `.env` (`DOCINT_EDGE_SECRET`,
-`NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `GHOSTWRITER_EDGE_SECRET`,
-`OPEN_WEBUI_EDGE_SECRET`)
+`NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `GHOSTWRITER_EDGE_SECRET`)
 and, with the same value under the same name, in that app's own `.env`.
 The gateway sends it as `X-Edge-Secret` on every request it proxies to
 the app (the `header_up` lines in `caddy/Caddyfile`). The app's frontend
@@ -97,11 +94,6 @@ secret of its own:
   without it. With a mismatch, the audit-trail viewer refuses every
   request, so `/audit` answers 403 until both `.env` files carry the
   same value.
-
-Open WebUI cannot check a secret itself either, and it does sit on
-`inference-net`. open-webui-service therefore puts a small nginx in front
-of it, in the same network namespace, which passes the identity headers on
-only when the secret matches.
 
 Direct service-to-service calls do not use the edge secret. docint's call
 to Nextext authenticates with a service token instead (Nextext's

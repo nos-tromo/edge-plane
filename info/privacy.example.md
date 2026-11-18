@@ -71,9 +71,6 @@ Was Sie in den Anwendungen selbst verarbeiten:
   prüfen); dazu zählen Code, Ausgaben und Tabellenvorschauen der Werkzeuge.
   Protokolliert werden Konto, Aktion und Verweise, keine Nachrichteninhalte;
   das Nachdenken des Modells wird weder angezeigt noch gespeichert.
-- **Open WebUI:** Chats werden 365 Tage nach ihrem Beginn gelöscht
-  (`OPEN_WEBUI_CHAT_RETENTION_DAYS`, prüfen). Protokolliert werden Konto,
-  Aufruf, Netzwerkadresse und Modell, keine Nachrichteninhalte.
 
 ## Rechtsgrundlage
 

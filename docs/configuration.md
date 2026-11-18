@@ -34,7 +34,7 @@ account changes and login attempts ([audit.md](audit.md)).
 | `EDGE_SESSION_INACTIVITY` | `4h` | Idle timeout before re-login |
 | `EDGE_SESSION_REMEMBER_ME` | `2M` | Session lifetime when "remember me" is ticked |
 | `EDGE_AUTH_POLICY` | `two_factor` (`make up-dev`: `one_factor`) | Authelia policy for every protected route: `two_factor` (password + TOTP) or `one_factor`. TOTP is admin-provisioned (`make totp`) — see [user-accounts.md](user-accounts.md#second-factor) |
-| `DOCINT_EDGE_SECRET`, `NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `GHOSTWRITER_EDGE_SECRET`, `OPEN_WEBUI_EDGE_SECRET` | empty | Per-app secret the gateway sends as `X-Edge-Secret`; each must equal the same variable in that app's `.env`. Generate with `openssl rand -hex 32` — see [identity-contract.md](identity-contract.md#edge-secret) |
+| `DOCINT_EDGE_SECRET`, `NEXTEXT_EDGE_SECRET`, `TRANSLATOR_EDGE_SECRET`, `GHOSTWRITER_EDGE_SECRET` | empty | Per-app secret the gateway sends as `X-Edge-Secret`; each must equal the same variable in that app's `.env`. Generate with `openssl rand -hex 32` — see [identity-contract.md](identity-contract.md#edge-secret) |
 | `AUDIT_POLL_INTERVAL` | `5` | Seconds between `auth-audit`'s rounds over Authelia's authentication log and `authelia/users.yml` (1–3600) — see [audit.md](audit.md#configuration) |
 | `EDGE_AUTH_RETENTION_DAYS` | `30` | Days after which `auth-retention` deletes Authelia's login records (1–3650, or `off` for development) — see [audit.md](audit.md#retention) |
 | `EDGE_AUTH_RETENTION_INTERVAL_S` | `3600` | Seconds between two retention sweeps (60–86400) |
