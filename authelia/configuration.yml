@@ -4,6 +4,9 @@
 ---
 server:
   address: 'tcp://:9091/auth'
+  # The login page's favicon: compose mounts landing/favicon.ico at
+  # /config/assets/favicon.ico. With no logo.png there, the default logo stays.
+  asset_path: '/config/assets/'
 
 log:
   level: info
