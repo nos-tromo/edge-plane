@@ -89,9 +89,9 @@ https://{$EDGE_HOST}:443 {
 
 	# The portal's favicon set (landing/favicon.*, apple-touch-icon.png),
 	# linked absolutely by every portal page. Served without auth like
-	# tokens.css: the login and information pages link it before any
-	# session exists, browsers ask for /favicon.ico on their own, and the
-	# files say nothing about anyone.
+	# tokens.css: the information pages link it before any session exists,
+	# browsers ask for /favicon.ico on their own (the login page included),
+	# and the files say nothing about anyone.
 	@brand path /favicon.ico /favicon.svg /favicon-32.png /apple-touch-icon.png
 	handle @brand {
 		root * /srv/landing

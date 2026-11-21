@@ -77,6 +77,7 @@ jobs:
             -e AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=insecure-ci-jwt-secret-0123456789abcdef \
             -v "$PWD/authelia/configuration.yml:/config/configuration.yml:ro" \
             -v "$PWD/authelia/users.yml:/config/users.yml:ro" \
+            -v "$PWD/landing/favicon.ico:/config/assets/favicon.ico:ro" \
             docker.io/authelia/authelia:4.39.20@sha256:1b363e9279e742397966333f364e0876ae02bf5c876de73e83af6d48c57ff51b \
             authelia config validate --config /config/configuration.yml
 

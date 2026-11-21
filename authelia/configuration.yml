@@ -4,8 +4,8 @@
 ---
 server:
   address: 'tcp://:9091/auth'
-  # The portal's favicon (authelia/assets/favicon.ico, a copy of
-  # landing/favicon.ico). With no logo.png there, the default logo stays.
+  # The login page's favicon: compose mounts landing/favicon.ico at
+  # /config/assets/favicon.ico. With no logo.png there, the default logo stays.
   asset_path: '/config/assets/'
 
 log:
