@@ -250,6 +250,12 @@ These were all hit in anger; don't "simplify" them away:
   identity. Host texts are gitignored; only the German templates and the
   `smoke.md` fixture are committed. The footer on both pages links the five
   known names only when their file exists — `scripts/smoke.sh` checks that.
+- The favicon set (`landing/favicon.svg`, `favicon-32.png`, `favicon.ico`,
+  `apple-touch-icon.png`) is served by the unauthenticated `@brand` route,
+  beside `@tokens`; every portal page links it absolutely. Authelia's login
+  page takes its `favicon.ico` from `authelia/assets/` (`server.asset_path`),
+  a copy of `landing/favicon.ico`: change both together, `scripts/smoke.sh`
+  compares them. The family's rules live in infra-ui's `docs/app-icons.md`.
 - `auth-audit` (`docs/audit.md`) has no network: it reads Authelia's
   database (`edge-state`, read-only mount, `mode=ro` connection) and the
   `authelia/` directory (read-only — a directory, so an editor's

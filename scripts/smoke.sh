@@ -204,6 +204,21 @@ grep -q -- "--color-background" <<<"$tokens_body" \
   || fail "/tokens.css did not serve the expected design tokens"
 echo "ok: vendored tokens.css served unauthenticated"
 
+# The portal's favicon set: served without auth (the login and information
+# pages link it before any session exists), byte for byte the files in
+# landing/. Authelia serves its own copy under /auth (server.asset_path).
+for icon in favicon.svg favicon-32.png apple-touch-icon.png favicon.ico; do
+  icon_head=$(run_curl "unauthenticated $icon request" -o /dev/null -w '%{http_code} %{content_type}' \
+    "$BASE/$icon")
+  [[ "$icon_head" == "200 image/"* ]] || fail "expected 200 image/* for unauthenticated /$icon, got: $icon_head"
+  "${CURL[@]}" "$BASE/$icon" | cmp -s - "landing/$icon" || fail "/$icon is not landing/$icon"
+done
+"${CURL[@]}" "$BASE/auth/favicon.ico" | cmp -s - authelia/assets/favicon.ico \
+  || fail "/auth/favicon.ico is not authelia/assets/favicon.ico"
+grep -q '<link rel="icon" href="/favicon.svg"' <<<"$landing_body" || fail "the portal does not link the favicon"
+grep -q '<link rel="icon" href="/favicon.svg"' <<<"$info_body" || fail "/info/smoke does not link the favicon"
+echo "ok: favicon set served unauthenticated, Authelia's copy under /auth"
+
 # Group gates: the smoke user is in neither `admins` nor `audit`, so both
 # operator-only routes refuse it, in any letter case (Caddy's path matcher
 # is case-insensitive). A 502 here would mean the gate let it through.

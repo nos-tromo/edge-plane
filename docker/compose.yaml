@@ -169,6 +169,7 @@ services:
       AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET:?set in .env}
     volumes:
       - ../authelia/configuration.yml:/config/configuration.yml:ro
+      - ../authelia/assets:/config/assets:ro
       - ../authelia/users.yml:/config/users.yml
       - edge-state:/data
       - edge-notify:/notify
