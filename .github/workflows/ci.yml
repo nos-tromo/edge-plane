@@ -32,6 +32,8 @@ jobs:
         run: ./scripts/check-tokens-vendor.sh
       - name: portal dimensional-literal check
         run: ./scripts/check-no-literal-dimensions.sh
+      - name: favicon links versioned by content
+        run: ./scripts/check-favicon-versions.sh
       - name: docker compose config
         run: |
           cp .env.example .env

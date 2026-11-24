@@ -84,6 +84,7 @@ docker run --rm -e EDGE_HOST=127.0.0.1 -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddy
 ./scripts/check-edge-secrets.sh                                                 # every upstream sends its own X-Edge-Secret
 ./scripts/check-tokens-vendor.sh                                                # landing/tokens.css vendoring header
 ./scripts/check-no-literal-dimensions.sh                                        # portal font-size/border-radius must be tokens
+./scripts/check-favicon-versions.sh                                             # portal favicon links carry ?v=<sha256[:8]>
 python3 -m unittest discover -s audit/tests -t audit                            # auth-audit + auth-retention (also run in the pinned python image)
 ./scripts/smoke.sh                                                              # after make up-dev; also checks the audit export
 ```
@@ -252,7 +253,11 @@ These were all hit in anger; don't "simplify" them away:
   known names only when their file exists — `scripts/smoke.sh` checks that.
 - The favicon set (`landing/favicon.svg`, `favicon-32.png`, `favicon.ico`,
   `apple-touch-icon.png`) is served by the unauthenticated `@brand` route,
-  beside `@tokens`; every portal page links it absolutely. Authelia's login
+  beside `@tokens`; every portal page links it absolutely, each link with
+  `?v=` and the first 8 hex digits of the file's SHA-256, since a browser
+  keeps a favicon by its URL whatever the cache headers say
+  (`scripts/check-favicon-versions.sh` holds the pages to it in CI; a
+  redrawn icon means new digits in every page). Authelia's login
   page serves the same `landing/favicon.ico`, mounted as a file at
   `/config/assets/favicon.ico` (`server.asset_path`; CI's config validate
   mounts it too, since Authelia refuses a missing asset directory). The
