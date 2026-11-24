@@ -215,8 +215,8 @@ for icon in favicon.svg favicon-32.png apple-touch-icon.png favicon.ico; do
 done
 "${CURL[@]}" "$BASE/auth/favicon.ico" | cmp -s - landing/favicon.ico \
   || fail "/auth/favicon.ico is not landing/favicon.ico"
-grep -q '<link rel="icon" href="/favicon.svg"' <<<"$landing_body" || fail "the portal does not link the favicon"
-grep -q '<link rel="icon" href="/favicon.svg"' <<<"$info_body" || fail "/info/smoke does not link the favicon"
+grep -q '<link rel="icon" href="/favicon.svg?v=' <<<"$landing_body" || fail "the portal does not link the favicon"
+grep -q '<link rel="icon" href="/favicon.svg?v=' <<<"$info_body" || fail "/info/smoke does not link the favicon"
 echo "ok: favicon set served unauthenticated, and by Authelia under /auth"
 
 # Group gates: the smoke user is in neither `admins` nor `audit`, so both
